@@ -6,9 +6,9 @@ if sys.version_info < (3,):
     sys.exit('Sorry, Python3 is required for fairseq.')
 
 setup(
-    name='myutils',
-    version='0.0.1',
-    description='Chenlinghao\'s personal utils.',
+    name='clh_utils',
+    version='0.0.2',
+    description='Chen Linghao\'s personal utils.',
     packages=find_packages(),
     install_requires=[
         'torch',
@@ -19,3 +19,5 @@ setup(
 )
 # to install this, use 'python setup.py build develop'
 # to add a new module, write a script in myutils/myutils directory, then import it in __init__.py, then install it .
+# 	• Build: python setup.py bdist_wheel
+# 	• Upload: python -m twine upload dist/*
