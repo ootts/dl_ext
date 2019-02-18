@@ -1,5 +1,5 @@
 import os
-
+import warnings
 import torch
 
 from clh_utils.history import History
@@ -8,17 +8,20 @@ from clh_utils.history import History
 def load_model(model, optim, scheduler, model_dir, for_train, load_optim, load_scheduler, epoch=-1,
                history: History = None):
     if not os.path.exists(model_dir):
+        warnings.warn(model_dir, 'does not exist, nothing will be loaded.')
         return 0
 
-    pths = [int(pth.split('.')[0]) for pth in os.listdir(model_dir) if pth.endswith('.pth')]
+    pths = [int(pth.split('.')[0])
+            for pth in os.listdir(model_dir) if pth.endswith('.pth')]
     if len(pths) == 0:
         return 0
     if epoch == -1:
         pth = max(pths)
     else:
         pth = epoch
-    print('Loading from epoch', pth)
-    pretrained_model = torch.load(os.path.join(model_dir, '{}.pth'.format(pth)))
+    print('Loading from {}.pth'.format(pth))
+    pretrained_model = torch.load(
+        os.path.join(model_dir, '{}.pth'.format(pth)))
     if hasattr(model, 'module'):
         print('Loading module...')
         model.module.load_state_dict(pretrained_model['net'])
@@ -37,8 +40,8 @@ def load_model(model, optim, scheduler, model_dir, for_train, load_optim, load_s
     return pretrained_model['epoch'] + 1
 
 
-def save_model(net, optim, scheduler, epoch, model_dir, cfg, history=None):
-    os.system('mkdir -p {}'.format(model_dir))
+def save_model(net, optim, scheduler, epoch, model_dir, history=None):
+    os.makedirs(model_dir, exist_ok=True)
     obj = {
         'net': net.module.state_dict() if hasattr(net, 'module') else net.state_dict(),
         'optim': optim.state_dict(),
