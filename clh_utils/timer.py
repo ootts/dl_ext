@@ -1,6 +1,7 @@
 import time
 
 
+# todo: use stack.
 class Timer:
     def __init__(self, print_all=False, unit='ms'):
         valid_units = ['ms', 's']
