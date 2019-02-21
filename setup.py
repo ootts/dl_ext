@@ -7,7 +7,7 @@ if sys.version_info < (3,):
 
 setup(
     name='clh_utils',
-    version='0.0.5',
+    version='0.0.5.1',
     description='Chen Linghao\'s personal utils.',
     packages=find_packages(),
     install_requires=[
@@ -22,3 +22,5 @@ setup(
 # to add a new module, write a script in myutils/myutils directory, then import it in __init__.py, then install it .
 # 	• Build: python setup.py bdist_wheel
 # 	• Upload: python -m twine upload dist/*
+# Build and upload
+#   python setup.py bdist_wheel && python -m twine upload dist/*
