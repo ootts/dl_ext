@@ -7,7 +7,10 @@ from os import path as osp
 import matplotlib.pyplot as plt
 import progressbar
 import torch
-from clh_utils import History, AverageMeter, save_model, get_lr
+from ..history import History
+from ..average_meter import AverageMeter
+from .model import save_model
+from .optim import get_lr
 
 
 class BaseTrainer:
