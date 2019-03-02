@@ -7,7 +7,7 @@ if sys.version_info < (3,):
 
 setup(
     name='clh_utils',
-    version='0.0.5.4',
+    version='0.0.5.5',
     description='Chen Linghao\'s personal utils.',
     packages=find_packages(),
     install_requires=[
@@ -15,7 +15,7 @@ setup(
         'matplotlib',
         'numpy',
         'visdom',
-        'progressbar2'
+        'progressbar2', 'torchvision'
     ]
 )
 # to install this, use 'python setup.py build develop'
