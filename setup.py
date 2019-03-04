@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 from setuptools import setup, find_packages
 import sys
-
 if sys.version_info < (3,):
     sys.exit('Sorry, Python3 is required for fairseq.')
 
 setup(
     name='clh_utils',
-    version='0.0.5.5',
+    version='0.0.7',
     description='Chen Linghao\'s personal utils.',
     packages=find_packages(),
     install_requires=[
@@ -15,7 +14,8 @@ setup(
         'matplotlib',
         'numpy',
         'visdom',
-        'progressbar2', 'torchvision'
+        'progressbar2',
+        'torchvision'
     ]
 )
 # to install this, use 'python setup.py build develop'
