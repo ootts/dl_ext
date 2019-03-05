@@ -142,6 +142,8 @@ class BaseTrainer:
         print('Training finished.')
         history.plot_loss()
         plt.savefig(osp.join(self.log_dir, 'loss.jpg'))
+        plt.show()
         history.plot_metrics()
         plt.savefig(osp.join(self.log_dir, 'metrics.jpg'))
+        plt.show()
         plt.close()

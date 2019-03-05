@@ -38,7 +38,6 @@ class History:
                  self.records['loss']['val'],
                  label='loss_val')
         plt.legend()
-        plt.show()
 
     def plot_metrics(self):
         plt.figure()
@@ -51,4 +50,3 @@ class History:
                      self.records[key]['val'],
                      label=key + '_val')
         plt.legend()
-        plt.show()
