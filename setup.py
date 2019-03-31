@@ -6,7 +6,7 @@ if sys.version_info < (3,):
 
 setup(
     name='clh_utils',
-    version='0.0.7.2',
+    version='0.1.0',
     description='Chen Linghao\'s personal utils.',
     packages=find_packages(),
     install_requires=[
@@ -15,7 +15,8 @@ setup(
         'numpy',
         'visdom',
         'progressbar2',
-        'torchvision'
+        'torchvision',
+        'fastai'
     ]
 )
 # to install this, use 'python setup.py build develop'
