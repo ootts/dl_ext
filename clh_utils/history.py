@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from visdom import Visdom
-
+from os import path as osp
 from .plot_utils import update_vis_plot
 
 
@@ -29,7 +29,7 @@ class History:
                 values.append(self.records[k][phase][-1])
         update_vis_plot(viz, epoch, epoch_plot, 'append', values)
 
-    def plot_loss(self):
+    def plot_loss(self, save_path=None):
         plt.figure()
         plt.plot(range(len(self.records['loss']['train'])),
                  self.records['loss']['train'],
@@ -38,15 +38,21 @@ class History:
                  self.records['loss']['val'],
                  label='loss_val')
         plt.legend()
+        if save_path is not None:
+            plt.savefig(save_path)
+            plt.show()
 
-    def plot_metrics(self):
-        plt.figure()
+    def plot_metrics(self, save_dir=None):
         for key in self.records.keys():
             if key == 'loss': continue
+            plt.figure()
             plt.plot(range(len(self.records[key]['train'])),
                      self.records[key]['train'],
                      label=key + '_train')
             plt.plot(range(len(self.records[key]['val'])),
                      self.records[key]['val'],
                      label=key + '_val')
-        plt.legend()
+            plt.legend()
+            if save_dir is not None:
+                plt.savefig(osp.join(save_dir, key + '.jpg'))
+                plt.show()

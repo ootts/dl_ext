@@ -117,7 +117,7 @@ class BaseTrainer:
         if self.history is None:
             history = History(['loss', *self.metrics_functions.keys()])
         else:
-        	history=self.history
+            history = self.history
         try:
             best_val_loss = 1000
             num_epochs = self.num_epochs if self.num_epochs >= 0 else 100000
@@ -140,10 +140,5 @@ class BaseTrainer:
             if not self.allow_keyboard_interrupt:
                 raise e
         print('Training finished.')
-        history.plot_loss()
-        plt.savefig(osp.join(self.log_dir, 'loss.jpg'))
-        plt.show()
-        history.plot_metrics()
-        plt.savefig(osp.join(self.log_dir, 'metrics.jpg'))
-        plt.show()
-        plt.close()
+        history.plot_loss(save_path=osp.join(self.log_dir, 'loss.jpg'))
+        history.plot_metrics(save_dir=self.log_dir)
