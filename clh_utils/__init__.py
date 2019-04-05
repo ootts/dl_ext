@@ -6,3 +6,4 @@ from .nlp_ext import *
 from .os_ext import *
 from .timer import Timer
 from .cv_utils import *
+from .fastai_ext import *
