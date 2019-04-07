@@ -6,7 +6,7 @@ if sys.version_info < (3,):
 
 setup(
     name='clh_utils',
-    version='0.1.2',
+    version='0.2.0',
     description='Chen Linghao\'s personal utils.',
     packages=find_packages(),
     install_requires=[
