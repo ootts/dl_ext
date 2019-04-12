@@ -2,11 +2,11 @@
 from setuptools import setup, find_packages
 import sys
 if sys.version_info < (3,):
-    sys.exit('Sorry, Python3 is required for fairseq.')
+    sys.exit('Sorry, Python3 is required for clh_utils.')
 
 setup(
     name='clh_utils',
-    version='0.3.3',
+    version='0.3.8',
     description='Chen Linghao\'s personal utils.',
     packages=find_packages(),
     install_requires=[

@@ -39,13 +39,19 @@ class PrintOnIterCallback(LearnerCallback):
         if self.has_loss_metric:
             for k, v in self.learn.loss_func.metrics.items():
                 self.meters[k].update(v.item())
-        if kwargs['iteration'] % self.print_interval == 0:
-            s = f"Epoch: {kwargs['epoch']}"
-            is_train = kwargs['train']
-            s = s + ' Phase: Train' if is_train else s + ' Phase: Validate'
-            s = s + f" iter: [{kwargs['iteration']}/{self.total_train_iters if is_train else self.total_val_iters}]"
-            if not is_train:
-                self.eval_iters += 1
+
+        if kwargs['train']:
+            phase = 'Train'
+            tit = self.total_train_iters
+            it = kwargs['iteration'] % tit
+        else:
+            phase = 'Validate'
+            tit = self.total_val_iters
+            it = self.eval_iters % tit
+            self.eval_iters += 1
+        if it % self.print_interval == 0:
+            s = f"Epoch: {kwargs['epoch']} Phase: {phase}"
+            s = s + f" iter: [{it}/{tit}]"
             s += f" last_loss: {kwargs['last_loss'].item():.4f}" + \
                  f" smooth_loss: {kwargs['smooth_loss'].item():.4f}"
             if self.has_loss_metric:
@@ -53,6 +59,35 @@ class PrintOnIterCallback(LearnerCallback):
                     s += ' ' + k + ': {:.4f}'.format(v.avg)
             for pf in self.print_funcs:
                 pf(s)
+
+        #
+        # if kwargs['train']:
+        #     if kwargs['iteration'] % self.print_interval == 0:
+        #         s = f"Epoch: {kwargs['epoch']} Phase: Train"
+        #         tit = self.total_train_iters
+        #         it = kwargs['iteration'] % tit
+        #         s = s + f" iter: [{it}/{tit}]"
+        #         s += f" last_loss: {kwargs['last_loss'].item():.4f}" + \
+        #              f" smooth_loss: {kwargs['smooth_loss'].item():.4f}"
+        #         if self.has_loss_metric:
+        #             for k, v in self.meters.items():
+        #                 s += ' ' + k + ': {:.4f}'.format(v.avg)
+        #         for pf in self.print_funcs:
+        #             pf(s)
+        # else:
+        #     self.eval_iters += 1
+        #     it = self.eval_iters
+        #     tit = self.total_val_iters
+        #     if it % self.print_interval==0:
+        #         s = f"Epoch: {kwargs['epoch']} Phase: Validate"
+        #         s = s + f" iter: [{it}/{tit}]"
+        #         s += f" last_loss: {kwargs['last_loss'].item():.4f}" + \
+        #              f" smooth_loss: {kwargs['smooth_loss'].item():.4f}"
+        #         if self.has_loss_metric:
+        #             for k, v in self.meters.items():
+        #                 s += ' ' + k + ': {:.4f}'.format(v.avg)
+        #         for pf in self.print_funcs:
+        #             pf(s)
 
 
 class LossMetrics(LearnerCallback):
