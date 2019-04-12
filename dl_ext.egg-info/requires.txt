@@ -1,0 +1,7 @@
+torch
+matplotlib
+numpy
+visdom
+progressbar2
+torchvision
+fastai

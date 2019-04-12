@@ -2,11 +2,11 @@
 from setuptools import setup, find_packages
 import sys
 if sys.version_info < (3,):
-    sys.exit('Sorry, Python3 is required for clh_utils.')
+    sys.exit('Sorry, Python3 is required for dl_ext.')
 
 setup(
-    name='clh_utils',
-    version='0.4.0',
+    name='dl_ext',
+    version='0.4.1',
     description='Chen Linghao\'s personal utils.',
     packages=find_packages(),
     install_requires=[
