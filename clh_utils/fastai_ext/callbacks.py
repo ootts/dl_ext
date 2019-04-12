@@ -8,11 +8,13 @@ from fastai.callbacks import LossMetrics as LM
 class PrintOnIterCallback(LearnerCallback):
     learn: Learner
 
-    def __init__(self, learn, print_interval=1, has_loss_metric=False, print_func=print):
+    def __init__(self, learn, print_interval=1, has_loss_metric=False, print_funcs=None):
         super().__init__(learn)
+        if print_funcs is None:
+            print_funcs = [print]
+        self.print_funcs = print_funcs
         self.print_interval = print_interval
         self.has_loss_metric = has_loss_metric
-        self.print_func = print_func
         if has_loss_metric:
             keys = self.learn.loss_func.metric_names
             if LM in self.learn.callback_fns:
@@ -47,7 +49,8 @@ class PrintOnIterCallback(LearnerCallback):
             if self.has_loss_metric:
                 for k, v in self.meters.items():
                     s += ' ' + k + ': {:.4f}'.format(v.avg)
-            self.print_func(s)
+            for pf in self.print_funcs:
+                pf(s)
 
 
 class LossMetrics(LearnerCallback):
