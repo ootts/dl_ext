@@ -1,5 +1,8 @@
+from fastai.torch_core import *
+import torch.distributed as dist
 from ..average_meter import AverageMeter
 from fastai.basic_train import LearnerCallback, Learner
+from fastai.callbacks import LossMetrics as LM
 
 
 class PrintOnIterCallback(LearnerCallback):
@@ -12,18 +15,67 @@ class PrintOnIterCallback(LearnerCallback):
         self.print_func = print_func
         if has_loss_metric:
             keys = self.learn.loss_func.metric_names
+            if LM in self.learn.callback_fns:
+                warn('bulitin LossMetrics has been deprecated! Use clh_utils.LossMetrics instead!')
             self.meters = dict(zip(keys, [AverageMeter()] * len(keys)))
+        self.eval_iters = 0
+        world_size = dist.get_world_size() if dist.is_initialized() else 1
+        self.total_train_iters = math.ceil(len(self.learn.data.train_ds) /
+                                           world_size /
+                                           self.learn.data.train_dl.batch_size)
+        self.total_val_iters = math.ceil(len(self.learn.data.valid_ds) /
+                                         world_size /
+                                         self.learn.data.valid_dl.batch_size)
+
+    def on_epoch_begin(self, **kwargs: Any) -> None:
+        for k, v in self.meters.items():
+            v.reset()
+        self.eval_iters = 0
 
     def on_batch_end(self, **kwargs) -> None:
+        if dist.is_initialized() and rank_distrib() != 0: return
         if self.has_loss_metric:
             for k, v in self.learn.loss_func.metrics.items():
                 self.meters[k].update(v.item())
         if kwargs['iteration'] % self.print_interval == 0:
-            s = 'Epoch: {}'.format(kwargs['epoch']) + \
-                ' iter: {}'.format(kwargs['iteration']) + \
-                ' last_loss: {:.4f}'.format(kwargs['last_loss'].item()) + \
-                ' smooth_loss: {:.4f}'.format(kwargs['smooth_loss'].item())
+            s = f"Epoch: {kwargs['epoch']}"
+            is_train = kwargs['train']
+            s = s + ' Phase: Train' if is_train else s + ' Phase: Validate'
+            s = s + f" iter: [{kwargs['iteration']}/{self.total_train_iters if is_train else self.total_val_iters}]"
+            s += f" last_loss: {kwargs['last_loss'].item():.4f}" + \
+                 f" smooth_loss: {kwargs['smooth_loss'].item():.4f}"
             if self.has_loss_metric:
                 for k, v in self.meters.items():
                     s += ' ' + k + ': {:.4f}'.format(v.avg)
             self.print_func(s)
+
+
+class LossMetrics(LearnerCallback):
+    "Add `loss_func.metrics` to metrics named by `loss_func.metric_names`"
+    _order = -20  # Needs to run before the recorder
+
+    def on_train_begin(self, **kwargs):
+        "Add the metrics names to the `Recorder`."
+        self.names = ifnone(self.learn.loss_func.metric_names, [])
+        if not self.names: warn('LossMetrics requested but no loss_func.metric_names provided')
+        self.learn.recorder.add_metric_names(self.names)
+
+    def on_epoch_begin(self, **kwargs):
+        "Initialize the metrics for this epoch."
+        self.metrics = {name: 0. for name in self.names}
+        self.nums = 0
+
+    def on_batch_end(self, last_target, train, **kwargs):
+        "Update the metrics if not `train`"
+        if train: return
+        if not is_listy(last_target): last_target = [last_target]
+        bs = last_target[0].size(0)
+        for name in self.names:
+            self.metrics[name] += bs * self.learn.loss_func.metrics[name].detach().cpu()
+        self.nums += bs
+
+    def on_epoch_end(self, last_metrics, **kwargs):
+        "Finish the computation and sends the result to the Recorder."
+        if not self.nums: return
+        metrics = [self.metrics[name] / self.nums for name in self.names]
+        return {'last_metrics': last_metrics + metrics}
