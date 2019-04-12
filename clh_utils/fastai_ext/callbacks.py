@@ -44,6 +44,8 @@ class PrintOnIterCallback(LearnerCallback):
             is_train = kwargs['train']
             s = s + ' Phase: Train' if is_train else s + ' Phase: Validate'
             s = s + f" iter: [{kwargs['iteration']}/{self.total_train_iters if is_train else self.total_val_iters}]"
+            if not is_train:
+                self.eval_iters += 1
             s += f" last_loss: {kwargs['last_loss'].item():.4f}" + \
                  f" smooth_loss: {kwargs['smooth_loss'].item():.4f}"
             if self.has_loss_metric:
