@@ -19,7 +19,7 @@ class PrintOnIterCallback(LearnerCallback):
             keys = self.learn.loss_func.metric_names
             if LM in self.learn.callback_fns:
                 warn('bulitin LossMetrics has been deprecated! Use clh_utils.LossMetrics instead!')
-            self.meters = dict(zip(keys, [AverageMeter()] * len(keys)))
+            self.meters = {k: AverageMeter() for k in keys}
         self.eval_iters = 0
         world_size = dist.get_world_size() if dist.is_initialized() else 1
         self.total_train_iters = math.ceil(len(self.learn.data.train_ds) /
@@ -59,35 +59,6 @@ class PrintOnIterCallback(LearnerCallback):
                     s += ' ' + k + ': {:.4f}'.format(v.avg)
             for pf in self.print_funcs:
                 pf(s)
-
-        #
-        # if kwargs['train']:
-        #     if kwargs['iteration'] % self.print_interval == 0:
-        #         s = f"Epoch: {kwargs['epoch']} Phase: Train"
-        #         tit = self.total_train_iters
-        #         it = kwargs['iteration'] % tit
-        #         s = s + f" iter: [{it}/{tit}]"
-        #         s += f" last_loss: {kwargs['last_loss'].item():.4f}" + \
-        #              f" smooth_loss: {kwargs['smooth_loss'].item():.4f}"
-        #         if self.has_loss_metric:
-        #             for k, v in self.meters.items():
-        #                 s += ' ' + k + ': {:.4f}'.format(v.avg)
-        #         for pf in self.print_funcs:
-        #             pf(s)
-        # else:
-        #     self.eval_iters += 1
-        #     it = self.eval_iters
-        #     tit = self.total_val_iters
-        #     if it % self.print_interval==0:
-        #         s = f"Epoch: {kwargs['epoch']} Phase: Validate"
-        #         s = s + f" iter: [{it}/{tit}]"
-        #         s += f" last_loss: {kwargs['last_loss'].item():.4f}" + \
-        #              f" smooth_loss: {kwargs['smooth_loss'].item():.4f}"
-        #         if self.has_loss_metric:
-        #             for k, v in self.meters.items():
-        #                 s += ' ' + k + ': {:.4f}'.format(v.avg)
-        #         for pf in self.print_funcs:
-        #             pf(s)
 
 
 class LossMetrics(LearnerCallback):

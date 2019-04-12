@@ -22,9 +22,13 @@ def get_preds_distributed(learn: Learner, ds_type: DatasetType = DatasetType.Val
         raise ValueError('currently only Valid type is supported!')
     # Train Valid Test Single Fix
     # todo: add multi type support
+    # todo: implement safer multi-process mechanism
+    # todo: fix break down when num_eval is small
+
     learn.model = DistributedDataParallel(learn.model, device_ids=[rank],
                                           output_device=rank)
     valid_sampler = OrderedDistributedSampler(learn.data.valid_dl.dataset)
+    num_eval = len(learn.data.valid_dl.dataset)
     old_valid_dl = learn.data.valid_dl
     learn.data.valid_dl = learn.data.valid_dl.new(shuffle=False, sampler=valid_sampler)
     preds = learn.get_preds(ds_type, with_loss, n_batch, pbar)
@@ -43,6 +47,10 @@ def get_preds_distributed(learn: Learner, ds_type: DatasetType = DatasetType.Val
             os.remove(osp.join('tmp', f'preds{i}.pkl'))
         os.remove('tmp/preds0.pkl')
         merged_preds = [torch.cat(t, dim=0) for t in merged_preds]
+        num_samples_per_gpu = valid_sampler.num_samples
+        for i in range(len(merged_preds)):
+            merged_preds[i] = merged_preds[i].reshape(world_size, num_samples_per_gpu, -1).transpose(0, 1).reshape(
+                world_size * num_samples_per_gpu, -1).squeeze(-1)[:num_eval]
         learn.data.valid_dl = old_valid_dl
         pickle.dump(merged_preds, open(osp.join('tmp', 'preds.pkl'), 'wb'))
         return merged_preds
