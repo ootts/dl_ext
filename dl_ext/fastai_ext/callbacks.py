@@ -52,13 +52,15 @@ class PrintOnIterCallback(LearnerCallback):
         if it % self.print_interval == 0:
             s = f"Epoch: {kwargs['epoch']} Phase: {phase}"
             s = s + f" iter: [{it}/{tit}]"
-            s += f" last_loss: {kwargs['last_loss'].item():.4f}" + \
-                 f" smooth_loss: {kwargs['smooth_loss'].item():.4f}"
+            s += f" last_loss: {kwargs['last_loss'].item():.4f}"
+            if phase == 'Train':
+                s += f" smooth_loss: {kwargs['smooth_loss'].item():.4f}"
             if self.has_loss_metric:
                 for k, v in self.meters.items():
                     s += ' ' + k + ': {:.4f}'.format(v.avg)
             for pf in self.print_funcs:
                 pf(s)
+
 
 
 class LossMetrics(LearnerCallback):

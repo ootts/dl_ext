@@ -2,7 +2,7 @@ import os
 import warnings
 import torch
 
-from clh_utils.history import History
+from ..history import History
 
 
 def load_model(model, optim, scheduler, model_dir, for_train, load_optim, load_scheduler, epoch=-1,
