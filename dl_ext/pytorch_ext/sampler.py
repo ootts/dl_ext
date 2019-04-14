@@ -42,13 +42,12 @@ class OrderedDistributedSampler(Sampler):
     def __iter__(self):
         # deterministically shuffle based on epoch
         indices = torch.arange(len(self.dataset)).tolist()
-
         # add extra samples to make it evenly divisible
         indices += indices[:(self.total_size - len(indices))]
         assert len(indices) == self.total_size
 
         # subsample
-        indices = indices[self.rank:self.total_size:self.num_replicas]
+        indices = indices[self.rank * self.num_samples:(self.rank + 1) * self.num_samples]
         assert len(indices) == self.num_samples
 
         return iter(indices)

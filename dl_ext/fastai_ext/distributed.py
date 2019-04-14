@@ -2,13 +2,14 @@ import os
 import pickle
 import time
 from os import path as osp
+from typing import Optional
 
+import torch
 import torch.distributed as dist
-from fastai.basic_data import DatasetType, warn
-from fastai.basic_train import Learner, _loss_func2activ
+from fastai.basic_data import DatasetType, warn, PBar
+from fastai.basic_train import Learner
 from fastai.distributed import DistributedDataParallel
 
-from .basic_train import *
 from ..pytorch_ext.sampler import OrderedDistributedSampler
 
 
@@ -17,9 +18,7 @@ def get_preds_distributed(learn: Learner, ds_type: DatasetType = DatasetType.Val
                           pbar: Optional[PBar] = None):
     if not dist.is_initialized():
         warn('torch.distributed has not been initialized! Drop to single gpu get_preds.')
-        lf = learn.loss_func if with_loss else None
-        return get_preds(learn.model, learn.dl(ds_type), cb_handler=CallbackHandler(learn.callbacks),
-                         activ=_loss_func2activ(learn.loss_func), loss_func=lf, n_batch=n_batch, pbar=pbar)
+        return learn.get_preds(ds_type, with_loss, n_batch=n_batch, pbar=pbar)
     os.makedirs('tmp', exist_ok=True)
     rank = dist.get_rank()
     world_size = dist.get_world_size()
@@ -36,8 +35,7 @@ def get_preds_distributed(learn: Learner, ds_type: DatasetType = DatasetType.Val
     num_eval = len(learn.data.valid_dl.dataset)
     old_valid_dl = learn.data.valid_dl
     learn.data.valid_dl = learn.data.valid_dl.new(shuffle=False, sampler=valid_sampler)
-    preds = get_preds(learn.model, learn.dl(ds_type), cb_handler=CallbackHandler(learn.callbacks),
-                      activ=_loss_func2activ(learn.loss_func), loss_func=lf, n_batch=n_batch, pbar=pbar)
+    preds = learn.get_preds(ds_type, with_loss, n_batch, pbar)
     pickle.dump(preds, open(osp.join('tmp', f'preds{rank}.pkl'), 'wb'))
     learn.model = learn.model.module
     # merge results and return
@@ -52,11 +50,7 @@ def get_preds_distributed(learn: Learner, ds_type: DatasetType = DatasetType.Val
                 merged_preds[j].append(next_preds[j])
             os.remove(osp.join('tmp', f'preds{i}.pkl'))
         os.remove('tmp/preds0.pkl')
-        merged_preds = [torch.cat(t, dim=0) for t in merged_preds]
-        num_samples_per_gpu = valid_sampler.num_samples
-        for i in range(len(merged_preds)):
-            merged_preds[i] = merged_preds[i].reshape(world_size, num_samples_per_gpu, -1).transpose(0, 1).reshape(
-                world_size * num_samples_per_gpu, -1).squeeze(-1)[:num_eval]
+        merged_preds = [torch.cat(t, dim=0)[:num_eval] for t in merged_preds]
         learn.data.valid_dl = old_valid_dl
         pickle.dump(merged_preds, open(osp.join('tmp', 'preds.pkl'), 'wb'))
         return merged_preds
