@@ -6,7 +6,7 @@ if sys.version_info < (3,):
 
 setup(
     name='dl_ext',
-    version='0.6.1',
+    version='0.6.2',
     description='Chen Linghao\'s personal utils.',
     packages=find_packages(),
     install_requires=[
@@ -16,7 +16,8 @@ setup(
         'visdom',
         'progressbar2',
         'torchvision',
-        'fastai'
+        'fastai',
+        'multipledispatch', 'imageio'
     ]
 )
 # to install this, use 'python setup.py build develop'
