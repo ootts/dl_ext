@@ -4,7 +4,7 @@ import numpy as np
 
 
 @dispatch(str)
-def read_calib(absolute_path):
+def load_calib(absolute_path):
     with open(absolute_path) as f:
         lines = {line.strip().split(':')[0]: list(map(float, line.strip().split(':')[1].split())) for line in
                  f.readlines()[:-1]}
@@ -25,24 +25,24 @@ def read_calib(absolute_path):
 
 
 @dispatch(str, str)
-def read_calib(calib_dir, imgid):
+def load_calib(calib_dir, imgid):
     absolute_path = os.path.join(calib_dir, imgid + '.txt')
-    return read_calib(absolute_path)
+    return load_calib(absolute_path)
 
 
 @dispatch(str, int)
-def read_calib(calib_dir, imgid):
+def load_calib(calib_dir, imgid):
     imgid = '%06d' % imgid
-    return read_calib(calib_dir, imgid)
+    return load_calib(calib_dir, imgid)
 
 
 @dispatch(str, str, str)
-def read_calib(kitti_root, split, imgid):
+def load_calib(kitti_root, split, imgid):
     calib_dir = os.path.join(kitti_root, 'object', split, 'calib')
-    return read_calib(calib_dir, imgid)
+    return load_calib(calib_dir, imgid)
 
 
 @dispatch(str, str, int)
-def read_calib(kitti_root, split, imgid):
+def load_calib(kitti_root, split, imgid):
     imgid = '%06d' % imgid
-    return read_calib(kitti_root, split, imgid)
+    return load_calib(kitti_root, split, imgid)

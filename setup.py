@@ -6,7 +6,7 @@ if sys.version_info < (3,):
 
 setup(
     name='dl_ext',
-    version='0.6.3',
+    version='0.7.0',
     description='Chen Linghao\'s personal utils.',
     packages=find_packages(),
     install_requires=[
@@ -17,7 +17,9 @@ setup(
         'progressbar2',
         'torchvision',
         'fastai',
-        'multipledispatch', 'imageio'
+        'multipledispatch',
+        'imageio',
+        'maskrcnn_benchmark'
     ]
 )
 # to install this, use 'python setup.py build develop'

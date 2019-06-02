@@ -4,7 +4,7 @@ import numpy as np
 
 
 @dispatch(str)
-def read_label_2(absolute_path):
+def load_label_2(absolute_path):
     with open(absolute_path) as f:
         lines = f.read().splitlines()
     labels = []
@@ -22,24 +22,24 @@ def read_label_2(absolute_path):
 
 
 @dispatch(str, str)
-def read_label_2(label_2_dir, imgid):
+def load_label_2(label_2_dir, imgid):
     absolute_path = os.path.join(label_2_dir, imgid + '.txt')
-    return read_label_2(absolute_path)
+    return load_label_2(absolute_path)
 
 
 @dispatch(str, int)
-def read_label_2(label_2_dir, imgid):
+def load_label_2(label_2_dir, imgid):
     imgid = '%06d' % imgid
-    return read_label_2(label_2_dir, imgid)
+    return load_label_2(label_2_dir, imgid)
 
 
 @dispatch(str, str, str)
-def read_label_2(kitti_root, split, imgid):
+def load_label_2(kitti_root, split, imgid):
     calib_dir = os.path.join(kitti_root, 'object', split, 'label_2')
-    return read_label_2(calib_dir, imgid)
+    return load_label_2(calib_dir, imgid)
 
 
 @dispatch(str, str, int)
-def read_label_2(kitti_root, split, imgid):
+def load_label_2(kitti_root, split, imgid):
     imgid = '%06d' % imgid
-    return read_label_2(kitti_root, split, imgid)
+    return load_label_2(kitti_root, split, imgid)

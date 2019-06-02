@@ -5,7 +5,7 @@ import imageio
 
 
 @dispatch(str)
-def read_image_2(absolute_path):
+def load_image_2(absolute_path):
     """
     :param absolute_path:
     :return: rgb
@@ -15,25 +15,25 @@ def read_image_2(absolute_path):
 
 
 @dispatch(str, str)
-def read_image_2(image_2_dir, imgid):
+def load_image_2(image_2_dir, imgid):
     absolute_path = os.path.join(image_2_dir, imgid + '.png')
-    return read_image_2(absolute_path)
+    return load_image_2(absolute_path)
 
 
 @dispatch(str, int)
-def read_image_2(image_2_dir, imgid):
+def load_image_2(image_2_dir, imgid):
     imgid = '%06d' % imgid
-    return read_image_2(image_2_dir, imgid)
+    return load_image_2(image_2_dir, imgid)
 
 
 @dispatch(str, str, str)
-def read_image_2(kitti_root, split, imgid):
+def load_image_2(kitti_root, split, imgid):
     calib_dir = os.path.join(kitti_root, 'object', split, 'image_2')
-    return read_image_2(calib_dir, imgid)
+    return load_image_2(calib_dir, imgid)
 
 
 @dispatch(str, str, int)
-def read_image_2(kitti_root, split, imgid):
+def load_image_2(kitti_root, split, imgid):
     """
     :param kitti_root:
     :param split: training or testing
@@ -41,4 +41,4 @@ def read_image_2(kitti_root, split, imgid):
     :return: rgb
     """
     imgid = '%06d' % imgid
-    return read_image_2(kitti_root, split, imgid)
+    return load_image_2(kitti_root, split, imgid)
