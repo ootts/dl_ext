@@ -19,8 +19,8 @@ setup(
         'fastai',
         'multipledispatch',
         'imageio',
-        'maskrcnn_benchmark'
-    ]
+        'maskrcnn_benchmark',
+    ],
 )
 # to install this, use 'python setup.py build develop'
 # to add a new module, write a script in myutils/myutils directory, then import it in __init__.py, then install it .
