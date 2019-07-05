@@ -138,21 +138,24 @@ class PSMNet(nn.Module):
         cost1 = self.classif1(out1)
         cost2 = self.classif2(out2) + cost1
         cost3 = self.classif3(out3) + cost2
-
+        use_cuda = cost3.is_cuda
         if self.training:
-            cost1 = F.interpolate(cost1, [self.maxdisp, left.size()[2], left.size()[3]], mode='trilinear',align_corners=True)
-            cost2 = F.interpolate(cost2, [self.maxdisp, left.size()[2], left.size()[3]], mode='trilinear',align_corners=True)
+            cost1 = F.interpolate(cost1, [self.maxdisp, left.size()[2], left.size()[3]], mode='trilinear',
+                                  align_corners=True)
+            cost2 = F.interpolate(cost2, [self.maxdisp, left.size()[2], left.size()[3]], mode='trilinear',
+                                  align_corners=True)
 
             cost1 = torch.squeeze(cost1, 1)
             pred1 = F.softmax(cost1, dim=1)
-            use_cuda = pred1.is_cuda
+
             pred1 = disparityregression(self.maxdisp, use_cuda)(pred1)
 
             cost2 = torch.squeeze(cost2, 1)
             pred2 = F.softmax(cost2, dim=1)
             pred2 = disparityregression(self.maxdisp, use_cuda)(pred2)
 
-        cost3 = F.interpolate(cost3, [self.maxdisp, left.size()[2], left.size()[3]], mode='trilinear',align_corners=True)
+        cost3 = F.interpolate(cost3, [self.maxdisp, left.size()[2], left.size()[3]], mode='trilinear',
+                              align_corners=True)
         cost3 = torch.squeeze(cost3, 1)
         pred3 = F.softmax(cost3, dim=1)
         # For your information: This formulation 'softmax(c)' learned "similarity"
