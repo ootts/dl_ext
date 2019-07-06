@@ -7,6 +7,7 @@ import torch
 from torch.utils.model_zoo import _download_url_to_file
 import requests
 from maskrcnn_benchmark.config.defaults import _C as default_cfg
+from torchvision.transforms import functional as F
 
 
 def loadurl(url, model_dir=None, map_location=None, progress=True):
@@ -139,3 +140,100 @@ def fbnet_xirb16d_MaskRCNN(pretrained=False):
 
 def fbnet_default_MaskRCNN(pretrained=False):
     return _build_maskrcnn('fbnet_default_MaskRCNN', pretrained)
+
+
+def maskrcnn_default_transform(image, to_bgr255=True, mean=None, std=None):
+    if mean is None:
+        mean = [102.9801, 115.9465, 122.7717]
+    if std is None:
+        std = [1., 1., 1.]
+    image = F.to_tensor(image)
+    if to_bgr255:
+        image = image[[2, 1, 0]] * 255
+    image = F.normalize(image, mean=mean, std=std)
+    return image
+
+
+CATEGORIES = [
+    "__background",
+    "person",
+    "bicycle",
+    "car",
+    "motorcycle",
+    "airplane",
+    "bus",
+    "train",
+    "truck",
+    "boat",
+    "traffic light",
+    "fire hydrant",
+    "stop sign",
+    "parking meter",
+    "bench",
+    "bird",
+    "cat",
+    "dog",
+    "horse",
+    "sheep",
+    "cow",
+    "elephant",
+    "bear",
+    "zebra",
+    "giraffe",
+    "backpack",
+    "umbrella",
+    "handbag",
+    "tie",
+    "suitcase",
+    "frisbee",
+    "skis",
+    "snowboard",
+    "sports ball",
+    "kite",
+    "baseball bat",
+    "baseball glove",
+    "skateboard",
+    "surfboard",
+    "tennis racket",
+    "bottle",
+    "wine glass",
+    "cup",
+    "fork",
+    "knife",
+    "spoon",
+    "bowl",
+    "banana",
+    "apple",
+    "sandwich",
+    "orange",
+    "broccoli",
+    "carrot",
+    "hot dog",
+    "pizza",
+    "donut",
+    "cake",
+    "chair",
+    "couch",
+    "potted plant",
+    "bed",
+    "dining table",
+    "toilet",
+    "tv",
+    "laptop",
+    "mouse",
+    "remote",
+    "keyboard",
+    "cell phone",
+    "microwave",
+    "oven",
+    "toaster",
+    "sink",
+    "refrigerator",
+    "book",
+    "clock",
+    "vase",
+    "scissors",
+    "teddy bear",
+    "hair drier",
+    "toothbrush",
+]
