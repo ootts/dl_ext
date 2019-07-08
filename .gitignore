@@ -3,4 +3,3 @@
 build/
 dl_ext.egg-info/
 dist/
-tests/

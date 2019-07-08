@@ -5,3 +5,7 @@ visdom
 progressbar2
 torchvision
 fastai
+multipledispatch
+imageio
+maskrcnn_benchmark
+requests

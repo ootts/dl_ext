@@ -8,6 +8,7 @@ kitti
             --image_3
             --calib
             --label_2
+            --velodyne
         --testing
             ...
 Currently, these functions support calib,image_2,image_3 and label_2
@@ -21,3 +22,4 @@ from .calib import *
 from .image_2 import *
 from .image_3 import *
 from .label_2 import *
+from .velodyne import *
