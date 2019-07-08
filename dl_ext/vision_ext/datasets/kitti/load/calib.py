@@ -58,25 +58,79 @@ class Calibration:
         pts_img, pts_depth = self.rect_to_img(pts_rect)
         return pts_img, pts_depth
 
+    def img_to_rect(self, u, v, depth_rect):
+        """
+        :param u: (N)
+        :param v: (N)
+        :param depth_rect: (N)
+        :return: pts_rect:(N, 3)
+        """
+        x = ((u - self.cu) * depth_rect) / self.fu + self.tx
+        y = ((v - self.cv) * depth_rect) / self.fv + self.ty
+        pts_rect = np.concatenate((x.reshape(-1, 1), y.reshape(-1, 1), depth_rect.reshape(-1, 1)), axis=1)
+        return pts_rect
+
+    def depthmap_to_rect(self, depth_map):
+        """
+        :param depth_map: (H, W), depth_map
+        :return: pts_rect(H*W, 3), x_idxs(N), y_idxs(N)
+        """
+        x_range = np.arange(0, depth_map.shape[1])
+        y_range = np.arange(0, depth_map.shape[0])
+        x_idxs, y_idxs = np.meshgrid(x_range, y_range)
+        x_idxs, y_idxs = x_idxs.reshape(-1), y_idxs.reshape(-1)
+        depth = depth_map[y_idxs, x_idxs]
+        pts_rect = self.img_to_rect(x_idxs, y_idxs, depth)
+        return pts_rect, x_idxs, y_idxs
+
+    def corners3d_to_img_boxes(self, corners3d):
+        """
+        :param corners3d: (N, 8, 3) corners in rect coordinate
+        :return: boxes: (None, 4) [x1, y1, x2, y2] in rgb coordinate
+        :return: boxes_corner: (None, 8) [xi, yi] in rgb coordinate
+        """
+        sample_num = corners3d.shape[0]
+        corners3d_hom = np.concatenate((corners3d, np.ones((sample_num, 8, 1))), axis=2)  # (N, 8, 4)
+
+        img_pts = np.matmul(corners3d_hom, self.P2.T)  # (N, 8, 3)
+
+        x, y = img_pts[:, :, 0] / img_pts[:, :, 2], img_pts[:, :, 1] / img_pts[:, :, 2]
+        x1, y1 = np.min(x, axis=1), np.min(y, axis=1)
+        x2, y2 = np.max(x, axis=1), np.max(y, axis=1)
+
+        boxes = np.concatenate((x1.reshape(-1, 1), y1.reshape(-1, 1), x2.reshape(-1, 1), y2.reshape(-1, 1)), axis=1)
+        boxes_corner = np.concatenate((x.reshape(-1, 8, 1), y.reshape(-1, 8, 1)), axis=2)
+
+        return boxes, boxes_corner
+
+    def camera_dis_to_rect(self, u, v, d):
+        """
+        Can only process valid u, v, d, which means u, v can not beyond the image shape, reprojection error 0.02
+        :param u: (N)
+        :param v: (N)
+        :param d: (N), the distance between camera and 3d points, d^2 = x^2 + y^2 + z^2
+        :return:
+        """
+        assert self.fu == self.fv, '%.8f != %.8f' % (self.fu, self.fv)
+        fd = np.sqrt((u - self.cu) ** 2 + (v - self.cv) ** 2 + self.fu ** 2)
+        x = ((u - self.cu) * d) / fd + self.tx
+        y = ((v - self.cv) * d) / fd + self.ty
+        z = np.sqrt(d ** 2 - x ** 2 - y ** 2)
+        pts_rect = np.concatenate((x.reshape(-1, 1), y.reshape(-1, 1), z.reshape(-1, 1)), axis=1)
+        return pts_rect
+
 
 @dispatch(str)
 def load_calib(absolute_path):
     with open(absolute_path) as f:
         lines = {line.strip().split(':')[0]: list(map(float, line.strip().split(':')[1].split())) for line in
                  f.readlines()[:-1]}
-    calibs = {}
-    calibs['P0'] = np.array(lines['P0']).reshape((3, 4))
-    calibs['P1'] = np.array(lines['P1']).reshape((3, 4))
-    calibs['P2'] = np.array(lines['P2']).reshape((3, 4))
-    # R0_rect = np.eye(4)
-    # R0_rect[0:3, 0:3] = np.array(lines['R0_rect']).reshape((3, 3))
-    calibs['R0_rect'] = np.array(lines['R0_rect']).reshape((3, 3))
-    # Tr_velo_to_cam = np.eye(4)
-    # Tr_velo_to_cam[0:3, :] = np.array(lines['Tr_velo_to_cam']).reshape((3, 4))
-    calibs['Tr_velo_to_cam'] = np.array(lines['Tr_velo_to_cam']).reshape((3, 4))
-    # Tr_imu_to_velo = np.eye(4)
-    # Tr_imu_to_velo[0:3, :] = np.array(lines['Tr_imu_to_velo']).reshape((3, 4))
-    calibs['Tr_imu_to_velo'] = np.array(lines['Tr_imu_to_velo']).reshape((3, 4))
+    calibs = {'P0': np.array(lines['P0']).reshape((3, 4)),
+              'P1': np.array(lines['P1']).reshape((3, 4)),
+              'P2': np.array(lines['P2']).reshape((3, 4)),
+              'R0_rect': np.array(lines['R0_rect']).reshape((3, 3)),
+              'Tr_velo_to_cam': np.array(lines['Tr_velo_to_cam']).reshape((3, 4)),
+              'Tr_imu_to_velo': np.array(lines['Tr_imu_to_velo']).reshape((3, 4))}
     return Calibration(calibs)
 
 

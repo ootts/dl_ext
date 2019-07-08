@@ -6,7 +6,7 @@ if sys.version_info < (3,):
 
 setup(
     name='dl_ext',
-    version='0.7.4',
+    version='0.7.5',
     description='Chen Linghao\'s personal utils.',
     packages=find_packages(),
     install_requires=[
@@ -19,7 +19,8 @@ setup(
         'fastai',
         'multipledispatch',
         'imageio',
-        'maskrcnn_benchmark', 'requests'
+        'maskrcnn_benchmark',
+        'requests'
     ],
 )
 # to install this, use 'python setup.py build develop'
