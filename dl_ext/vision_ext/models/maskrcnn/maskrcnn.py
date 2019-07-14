@@ -4,7 +4,11 @@ import sys
 from urllib.parse import urlparse
 
 import torch
-from torch.utils.model_zoo import _download_url_to_file
+
+try:
+    from torch.utils.model_zoo import _download_url_to_file
+except:
+    from torch.hub import _download_url_to_file
 import requests
 from maskrcnn_benchmark.config.defaults import _C as default_cfg
 from torchvision.transforms import functional as F
