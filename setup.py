@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 from setuptools import setup, find_packages
 import sys
+
 if sys.version_info < (3,):
     sys.exit('Sorry, Python3 is required for dl_ext.')
 
 setup(
     name='dl_ext',
-    version='0.7.7',
+    version='0.7.8',
     description='Chen Linghao\'s personal utils.',
     packages=find_packages(),
     install_requires=[
@@ -19,7 +20,7 @@ setup(
         'fastai',
         'multipledispatch',
         'imageio',
-        'maskrcnn_benchmark',
+        # 'maskrcnn_benchmark',
         'requests'
     ],
 )
