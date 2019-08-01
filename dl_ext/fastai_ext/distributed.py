@@ -60,6 +60,10 @@ def get_preds_distributed(learn: Learner, ds_type: DatasetType = DatasetType.Val
         pickle.dump(merged_preds, open(osp.join('tmp', 'preds.pkl'), 'wb'), protocol=4)
         return merged_preds
     else:
-        while not osp.exists(osp.join('tmp', 'preds.pkl')):
-            time.sleep(1)
-        return pickle.load(open(osp.join('tmp', 'preds.pkl'), 'rb'))
+        # return nothing when this is not main process. note that main process may takes sometime to write preds.pkl
+        # so we prefer other processes not to read preds.pkl
+        # when main process dumping because it will fail to read a incomplete pkl.
+        return
+        # while not osp.exists(osp.join('tmp', 'preds.pkl')):
+        #     time.sleep(1)
+        # return pickle.load(open(osp.join('tmp', 'preds.pkl'), 'rb'))
