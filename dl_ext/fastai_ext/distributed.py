@@ -15,10 +15,13 @@ from ..pytorch_ext.sampler import OrderedDistributedSampler
 
 def get_preds_distributed(learn: Learner, ds_type: DatasetType = DatasetType.Valid, with_loss: bool = False,
                           n_batch: Optional[int] = None,
-                          pbar: Optional[PBar] = None):
+                          pbar: Optional[PBar] = None, requires_target=True):
     if not dist.is_initialized():
         warn('torch.distributed has not been initialized! Drop to single gpu get_preds.')
-        return learn.get_preds(ds_type, with_loss, n_batch=n_batch, pbar=pbar)
+        preds = learn.get_preds(ds_type, with_loss, n_batch=n_batch, pbar=pbar)
+        if not requires_target:
+            preds = preds[0]
+        return preds
     os.makedirs('tmp', exist_ok=True)
     rank = dist.get_rank()
     world_size = dist.get_world_size()
@@ -36,7 +39,7 @@ def get_preds_distributed(learn: Learner, ds_type: DatasetType = DatasetType.Val
     old_valid_dl = learn.data.valid_dl
     learn.data.valid_dl = learn.data.valid_dl.new(shuffle=False, sampler=valid_sampler)
     preds = learn.get_preds(ds_type, with_loss, n_batch, pbar)
-    pickle.dump(preds, open(osp.join('tmp', f'preds{rank}.pkl'), 'wb'))
+    pickle.dump(preds, open(osp.join('tmp', f'preds{rank}.pkl'), 'wb'), protocol=4)
     learn.model = learn.model.module
     # merge results and return
     if rank == 0:
@@ -52,7 +55,9 @@ def get_preds_distributed(learn: Learner, ds_type: DatasetType = DatasetType.Val
         os.remove('tmp/preds0.pkl')
         merged_preds = [torch.cat(t, dim=0)[:num_eval] for t in merged_preds]
         learn.data.valid_dl = old_valid_dl
-        pickle.dump(merged_preds, open(osp.join('tmp', 'preds.pkl'), 'wb'))
+        if not requires_target:
+            merged_preds = merged_preds[0]
+        pickle.dump(merged_preds, open(osp.join('tmp', 'preds.pkl'), 'wb'), protocol=4)
         return merged_preds
     else:
         while not osp.exists(osp.join('tmp', 'preds.pkl')):
