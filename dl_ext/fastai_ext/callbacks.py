@@ -36,8 +36,9 @@ class PrintOnIterCallback(LearnerCallback):
                                          self.learn.data.valid_dl.batch_size)
 
     def on_epoch_begin(self, **kwargs: Any) -> None:
-        for k, v in self.meters.items():
-            v.reset()
+        if self.has_loss_metric:
+            for k, v in self.meters.items():
+                v.reset()
         self.eval_iters = 0
 
     def on_batch_end(self, **kwargs) -> None:
