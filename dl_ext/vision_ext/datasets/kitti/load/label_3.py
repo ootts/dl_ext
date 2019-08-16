@@ -1,9 +1,8 @@
 import os
 from multipledispatch import dispatch
 
-
 @dispatch(str)
-def load_label_2(absolute_path):
+def load_label_3(absolute_path):
     with open(absolute_path) as f:
         lines = f.read().splitlines()
     labels = []
@@ -21,24 +20,24 @@ def load_label_2(absolute_path):
 
 
 @dispatch(str, str)
-def load_label_2(label_2_dir, imgid):
-    absolute_path = os.path.join(label_2_dir, imgid + '.txt')
-    return load_label_2(absolute_path)
+def load_label_3(label_3_dir, imgid):
+    absolute_path = os.path.join(label_3_dir, imgid + '.txt')
+    return load_label_3(absolute_path)
 
 
 @dispatch(str, int)
-def load_label_2(label_2_dir, imgid):
+def load_label_3(label_3_dir, imgid):
     imgid = '%06d' % imgid
-    return load_label_2(label_2_dir, imgid)
+    return load_label_3(label_3_dir, imgid)
 
 
 @dispatch(str, str, str)
-def load_label_2(kitti_root, split, imgid):
-    calib_dir = os.path.join(kitti_root, 'object', split, 'label_2')
-    return load_label_2(calib_dir, imgid)
+def load_label_3(kitti_root, split, imgid):
+    calib_dir = os.path.join(kitti_root, 'object', split, 'label_3')
+    return load_label_3(calib_dir, imgid)
 
 
 @dispatch(str, str, int)
-def load_label_2(kitti_root, split, imgid):
+def load_label_3(kitti_root, split, imgid):
     imgid = '%06d' % imgid
-    return load_label_2(kitti_root, split, imgid)
+    return load_label_3(kitti_root, split, imgid)

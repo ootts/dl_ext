@@ -22,4 +22,5 @@ from .calib import *
 from .image_2 import *
 from .image_3 import *
 from .label_2 import *
+from .label_3 import *
 from .velodyne import *
