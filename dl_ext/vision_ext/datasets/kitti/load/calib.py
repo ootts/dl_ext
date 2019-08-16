@@ -8,6 +8,7 @@ class Calibration:
         self.P0 = calibs['P0']  # 3 x 4
         self.P1 = calibs['P1']  # 3 x 4
         self.P2 = calibs['P2']  # 3 x 4
+        self.P3 = calibs['P3']  # 3 x 4
         self.R0 = calibs['R0_rect']  # 3 x 3
         self.V2C = calibs['Tr_velo_to_cam']  # 3 x 4
         self.I2V = calibs['Tr_imu_to_velo']  # 3 x 4
@@ -128,6 +129,7 @@ def load_calib(absolute_path):
     calibs = {'P0': np.array(lines['P0']).reshape((3, 4)),
               'P1': np.array(lines['P1']).reshape((3, 4)),
               'P2': np.array(lines['P2']).reshape((3, 4)),
+              'P3': np.array(lines['P3']).reshape((3, 4)),
               'R0_rect': np.array(lines['R0_rect']).reshape((3, 3)),
               'Tr_velo_to_cam': np.array(lines['Tr_velo_to_cam']).reshape((3, 4)),
               'Tr_imu_to_velo': np.array(lines['Tr_imu_to_velo']).reshape((3, 4))}
