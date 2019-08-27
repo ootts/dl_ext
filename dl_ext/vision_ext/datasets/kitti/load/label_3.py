@@ -1,5 +1,7 @@
 import os
 from multipledispatch import dispatch
+from ..kitti_object_3d import KITTIObject3D, KITTIObjectClass
+
 
 @dispatch(str)
 def load_label_3(absolute_path):
@@ -10,11 +12,8 @@ def load_label_3(absolute_path):
         items = l.split()
         cls = items[0]
         truncated, occluded, alpha, x1, y1, x2, y2, h, w, l, x, y, z, ry = map(float, items[1:])
-        label = {'cls': cls,
-                 'truncated': truncated, 'occluded': occluded, 'alpha': alpha,
-                 'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2,
-                 'h': h, 'w': w, 'l': l,
-                 'x': x, 'y': y, 'z': z, 'ry': ry}
+        label = KITTIObject3D(KITTIObjectClass[cls], truncated, occluded, alpha,
+                              x1, y1, x2, y2, h, w, l, x, y, z, ry)
         labels.append(label)
     return labels
 
