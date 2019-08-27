@@ -3,7 +3,8 @@ This repository contains several useful utils for os, file, pytorch manipulation
 
 # Install
 This repository has been release in [pypi](https://pypi.org/manage/project/dl-ext/releases/).<br>
-To install it, use 'pip install dl-ext'
+Firstly, install [pytorch](https://pytorch.org). We strongly recommend to use cuda 9.0 or 10.0.
+Then install dl-ext using 'pip install dl-ext'
 
 ## Maskrcnn_benchmark support
 dl-ext has maskrcnn_benchmark support.

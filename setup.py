@@ -11,7 +11,7 @@ setup(
     description='Chen Linghao\'s personal utils.',
     packages=find_packages(),
     install_requires=[
-        'torch',
+#         'torch',
         'matplotlib',
         'numpy',
         'visdom',
