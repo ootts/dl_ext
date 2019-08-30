@@ -7,11 +7,11 @@ if sys.version_info < (3,):
 
 setup(
     name='dl_ext',
-    version='0.8.6',
+    version='0.9.0',
     description='Chen Linghao\'s personal utils.',
     packages=find_packages(),
     install_requires=[
-#         'torch',
+        #         'torch',
         'matplotlib',
         'numpy',
         'visdom',
