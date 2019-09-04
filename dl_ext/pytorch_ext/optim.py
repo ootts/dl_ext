@@ -74,6 +74,7 @@ class OneCycleScheduler(_LRScheduler):
                  total_steps,
                  pct_start: float = 0.3,
                  div_factor=25.0,
+                 final_div_factor=None,
                  cycle_momentum=True,
                  base_momentum=0.85,
                  max_momentum=0.95,
@@ -84,13 +85,16 @@ class OneCycleScheduler(_LRScheduler):
                 type(optimizer).__name__))
         self.optimizer = optimizer
         start_lr = max_lr / div_factor
-        # end_lr = max_lr / div_factor / 1e4
+        if final_div_factor is None:
+            final_div_factor = div_factor * 1e4
+        end_lr = max_lr / final_div_factor
         base_lrs = self._format_param('base_lr', optimizer, start_lr)
         if last_epoch == -1:
             for lr, group in zip(base_lrs, optimizer.param_groups):
                 group['lr'] = lr
 
         self.max_lrs = self._format_param('max_lr', optimizer, max_lr)
+        self.end_lrs = self._format_param('end_lr', optimizer, end_lr)
 
         self.step_size_up = float(total_steps * pct_start)
         self.step_size_down = float(total_steps - self.step_size_up)
@@ -130,11 +134,11 @@ class OneCycleScheduler(_LRScheduler):
         """
         x = self.last_epoch / self.total_size
         lrs = []
-        for base_lr, max_lr in zip(self.base_lrs, self.max_lrs):
+        for base_lr, max_lr, end_lr in zip(self.base_lrs, self.max_lrs, self.end_lrs):
             if x <= self.step_ratio:
                 lr = annealing_cos(base_lr, max_lr, self.last_epoch / self.step_size_up)
             else:
-                lr = annealing_cos(max_lr, base_lr, (self.last_epoch - self.step_size_up) / self.step_size_down)
+                lr = annealing_cos(max_lr, end_lr, (self.last_epoch - self.step_size_up) / self.step_size_down)
             lrs.append(lr)
 
         if self.cycle_momentum:
