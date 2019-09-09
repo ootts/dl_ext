@@ -30,3 +30,5 @@ setup(
 # 	• Upload: python -m twine upload dist/*
 # Build and upload
 #   python setup.py bdist_wheel && python -m twine upload dist/*
+# Usage:
+# Documentation or tutorial has not been fully built, please see comments in source code for help.

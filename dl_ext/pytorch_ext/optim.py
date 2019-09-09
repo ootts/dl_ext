@@ -56,9 +56,10 @@ class OneCycleScheduler(_LRScheduler):
 
     Example:
         >>> optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
-        >>> scheduler = torch.optim.CyclicLR(optimizer)
         >>> data_loader = torch.utils.data.DataLoader(...)
-        >>> for epoch in range(10):
+        >>> epochs = ... # specify epochs
+        >>> scheduler = OneCycleScheduler(optimizer, max_lr=0.1,total_steps=epochs*len(data_loader))
+        >>> for epoch in range(epochs):
         >>>     for batch in data_loader:
         >>>         train_batch(...)
         >>>         scheduler.step()
