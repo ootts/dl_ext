@@ -18,7 +18,7 @@ def get_preds_distributed(learn: Learner, ds_type: DatasetType = DatasetType.Val
                           pbar: Optional[PBar] = None, requires_target=True):
     if not dist.is_initialized():
         warn('torch.distributed has not been initialized! Drop to single gpu get_preds.')
-        preds = learn.get_preds(ds_type, with_loss, n_batch=n_batch, pbar=pbar)
+        preds = learn.get_preds(ds_type, with_loss=with_loss, n_batch=n_batch, pbar=pbar)
         if not requires_target:
             preds = preds[0]
         return preds

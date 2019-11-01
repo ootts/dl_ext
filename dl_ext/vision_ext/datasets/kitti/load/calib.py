@@ -14,12 +14,36 @@ class Calibration:
         self.I2V = calibs['Tr_imu_to_velo']  # 3 x 4
 
         # Camera intrinsics and extrinsics
-        self.cu = self.P2[0, 2]
-        self.cv = self.P2[1, 2]
-        self.fu = self.P2[0, 0]
-        self.fv = self.P2[1, 1]
-        self.tx = self.P2[0, 3] / (-self.fu)
-        self.ty = self.P2[1, 3] / (-self.fv)
+        # self.cu = self.P2[0, 2]
+        # self.cv = self.P2[1, 2]
+        # self.fu = self.P2[0, 0]
+        # self.fv = self.P2[1, 1]
+        # self.tx = self.P2[0, 3] / (-self.fu)
+        # self.ty = self.P2[1, 3] / (-self.fv)
+
+    @property
+    def cu(self):
+        return self.P2[0, 2]
+
+    @property
+    def cv(self):
+        return self.P2[1, 2]
+
+    @property
+    def fu(self):
+        return self.P2[0, 0]
+
+    @property
+    def fv(self):
+        return self.P2[1, 1]
+
+    @property
+    def tx(self):
+        return self.P2[0, 3] / (-self.fu)
+
+    @property
+    def ty(self):
+        return self.P2[1, 3] / (-self.fv)
 
     def cart_to_hom(self, pts):
         """

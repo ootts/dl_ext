@@ -1,8 +1,16 @@
-from enum import Enum
+from enum import IntEnum
 
-KITTIObjectClass = Enum('KITTIObjectClass', ('Car', 'Van', 'Truck',
-                                             'Pedestrian', 'Person_sitting', 'Cyclist', 'Tram',
-                                             'Misc', 'DontCare'))
+
+class KITTIObjectClass(IntEnum):
+    Car = 1
+    Van = 2
+    Truck = 3
+    Pedestrian = 4
+    Person_sitting = 5
+    Cyclist = 6
+    Tram = 7
+    Misc = 8
+    DontCare = 9
 
 
 class KITTIObject3D:

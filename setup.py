@@ -7,7 +7,7 @@ if sys.version_info < (3,):
 
 setup(
     name='dl_ext',
-    version='0.9.4',
+    version='0.9.9',
     description='Chen Linghao\'s personal utils.',
     packages=find_packages(),
     install_requires=[
