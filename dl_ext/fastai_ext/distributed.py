@@ -38,7 +38,7 @@ def get_preds_distributed(learn: Learner, ds_type: DatasetType = DatasetType.Val
     num_eval = len(learn.data.valid_dl.dataset)
     old_valid_dl = learn.data.valid_dl
     learn.data.valid_dl = learn.data.valid_dl.new(shuffle=False, sampler=valid_sampler)
-    preds = learn.get_preds(ds_type, with_loss, n_batch, pbar)
+    preds = learn.get_preds(ds_type, with_loss=with_loss, n_batch=n_batch, pbar=pbar)
     pickle.dump(preds, open(osp.join('tmp', f'preds{rank}.pkl'), 'wb'), protocol=4)
     learn.model = learn.model.module
     # merge results and return

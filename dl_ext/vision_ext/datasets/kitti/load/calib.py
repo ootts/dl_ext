@@ -45,6 +45,10 @@ class Calibration:
     def ty(self):
         return self.P2[1, 3] / (-self.fv)
 
+    @property
+    def stereo_baseline(self):
+        return self.P2[0, 3] - self.P3[0, 3]
+
     def cart_to_hom(self, pts):
         """
         :param pts: (N, 3 or 2)
