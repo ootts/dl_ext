@@ -7,20 +7,20 @@ if sys.version_info < (3,):
 
 setup(
     name='dl_ext',
-    version='1.0.1',
+    version='1.0.2',
     description='Chen Linghao\'s personal utils.',
     packages=find_packages(),
     install_requires=[
         #         'torch',
         'matplotlib',
         'numpy',
-        'visdom',
+        'tensorboard',
+        'tensorboardX',
         'progressbar2',
         'torchvision',
         'fastai',
         'multipledispatch',
         'imageio',
-        # 'maskrcnn_benchmark',
         'requests'
     ],
 )
