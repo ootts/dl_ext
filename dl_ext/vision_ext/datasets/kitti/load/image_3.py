@@ -1,12 +1,11 @@
 import os
 from multipledispatch import dispatch
-import numpy as np
-import imageio
+from PIL import Image
 
 
 @dispatch(str)
 def load_image_3(absolute_path):
-    return np.array(imageio.imread(absolute_path))
+    return Image.open(absolute_path)
 
 
 @dispatch(str, str)

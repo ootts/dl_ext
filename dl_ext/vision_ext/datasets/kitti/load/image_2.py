@@ -1,7 +1,6 @@
 import os
 from multipledispatch import dispatch
-import numpy as np
-import imageio
+from PIL import Image
 
 
 @dispatch(str)
@@ -10,7 +9,7 @@ def load_image_2(absolute_path):
     :param absolute_path:
     :return: rgb
     """
-    rgb = np.array(imageio.imread(absolute_path))
+    rgb = Image.open(absolute_path)
     return rgb
 
 

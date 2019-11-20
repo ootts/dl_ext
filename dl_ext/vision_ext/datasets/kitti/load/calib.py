@@ -116,6 +116,10 @@ class Calibration:
         depth_map = self.stereo_baseline / (disparity_map + epsilon)
         return self.depthmap_to_rect(depth_map)
 
+    def disparity_map_to_depth_map(self, disparity_map, epsilon=1e-6):
+        depth_map = self.stereo_baseline / (disparity_map + epsilon)
+        return depth_map
+
     def corners3d_to_img_boxes(self, corners3d):
         """
         :param corners3d: (N, 8, 3) corners in rect coordinate

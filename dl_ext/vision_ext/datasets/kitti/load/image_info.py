@@ -19,7 +19,7 @@ class ImageInfoCache:
 
     def post_init(self, root, split):
 
-        cache_dir = os.path.expanduser('~/dl_ext/vision_ext/datasets/kitti/image_info')
+        cache_dir = os.path.expanduser('~/.dl_ext/vision_ext/datasets/kitti/image_info')
         self.cache_path = os.path.join(cache_dir, f'{split}.pkl')
         os.makedirs(cache_dir, exist_ok=True)
         self.root = root
