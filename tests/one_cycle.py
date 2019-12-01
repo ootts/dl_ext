@@ -1,15 +1,15 @@
 import torch
+from tensorboardX import SummaryWriter
 from torch import nn
-from torch.optim import SGD
+from torch.optim import Adam
 from torchvision.models import resnet18
 from tqdm import trange
 
 from dl_ext.pytorch_ext.optim import OneCycleScheduler
-from tensorboardX import SummaryWriter
 
 tb_writer = SummaryWriter('./tests/log')
 net = resnet18().cuda()
-optim = SGD(net.parameters(), lr=0.01, momentum=0.95)
+optim = Adam(net.parameters(), lr=0.01)
 total_steps = 1000
 scheduler = OneCycleScheduler(optim, max_lr=1e-2, total_steps=total_steps)
 loss_fn = nn.CrossEntropyLoss()

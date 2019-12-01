@@ -55,10 +55,10 @@ class OneCycleScheduler(_LRScheduler):
             Default: -1
 
     Example:
-        >>> optimizer = torch.optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
+        >>> optimizer = torch.optim.Adam(model.parameters(), lr=0.1, momentum=0.9)
         >>> data_loader = torch.utils.data.DataLoader(...)
         >>> epochs = ... # specify epochs
-        >>> scheduler = OneCycleScheduler(optimizer, max_lr=0.1,total_steps=epochs*len(data_loader))
+        >>> scheduler = OneCycleScheduler(optimizer, max_lr=0.1,total_steps=epochs*len(data_loader),cycle_momentum=False)
         >>> for epoch in range(epochs):
         >>>     for batch in data_loader:
         >>>         train_batch(...)
@@ -111,8 +111,8 @@ class OneCycleScheduler(_LRScheduler):
             if last_epoch == -1:
                 for momentum, group in zip(base_momentums, optimizer.param_groups):
                     group['momentum'] = momentum
-        self.base_momentums = list(map(lambda group: group['momentum'], optimizer.param_groups))
-        self.max_momentums = self._format_param('max_momentum', optimizer, max_momentum)
+            self.base_momentums = list(map(lambda group: group['momentum'], optimizer.param_groups))
+            self.max_momentums = self._format_param('max_momentum', optimizer, max_momentum)
 
         super(OneCycleScheduler, self).__init__(optimizer, last_epoch)
 
