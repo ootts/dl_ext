@@ -55,10 +55,10 @@ class OneCycleScheduler(_LRScheduler):
             Default: -1
 
     Example:
-        >>> optimizer = torch.optim.Adam(model.parameters(), lr=0.1, momentum=0.9)
+        >>> optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
         >>> data_loader = torch.utils.data.DataLoader(...)
         >>> epochs = ... # specify epochs
-        >>> scheduler = OneCycleScheduler(optimizer, max_lr=0.1,total_steps=epochs*len(data_loader),cycle_momentum=False)
+        >>> scheduler = OneCycleScheduler(optimizer, max_lr=0.1,total_steps=epochs*len(data_loader))
         >>> for epoch in range(epochs):
         >>>     for batch in data_loader:
         >>>         train_batch(...)
@@ -104,14 +104,28 @@ class OneCycleScheduler(_LRScheduler):
 
         self.cycle_momentum = cycle_momentum
         if cycle_momentum:
-            if 'momentum' not in optimizer.defaults:
+            if 'momentum' in optimizer.defaults:
+                # use momentum
+                self.mom = 'momentum'
+            elif 'betas' in optimizer.defaults:
+                # use betas[0]
+                self.mom = 'beta'
+                pass
+            else:
                 raise ValueError('optimizer must support momentum with `cycle_momentum` option enabled')
-
             base_momentums = self._format_param('base_momentum', optimizer, base_momentum)
             if last_epoch == -1:
                 for momentum, group in zip(base_momentums, optimizer.param_groups):
-                    group['momentum'] = momentum
-            self.base_momentums = list(map(lambda group: group['momentum'], optimizer.param_groups))
+                    if self.mom == 'momentum':
+                        group['momentum'] = momentum
+                    elif self.mom == 'beta':
+                        group['betas'] = (momentum, group['betas'][1])
+                    else:
+                        raise NotImplementedError()
+            if self.mom == 'momentum':
+                self.base_momentums = list(map(lambda group: group['momentum'], optimizer.param_groups))
+            elif self.mom == 'beta':
+                self.base_momentums = list(map(lambda group: group['betas'][0], optimizer.param_groups))
             self.max_momentums = self._format_param('max_momentum', optimizer, max_momentum)
 
         super(OneCycleScheduler, self).__init__(optimizer, last_epoch)
@@ -152,9 +166,20 @@ class OneCycleScheduler(_LRScheduler):
                                              (self.last_epoch - self.step_size_up) / self.step_size_down)
                 momentums.append(momentum)
             for param_group, momentum in zip(self.optimizer.param_groups, momentums):
-                param_group['momentum'] = momentum
+                if self.mom == 'momentum':
+                    param_group['momentum'] = momentum
+                elif self.mom == 'beta':
+                    param_group['betas'] = (momentum, param_group['betas'][1])
 
         return lrs
+
+    def read_momentum(self):
+        if self.mom == 'momentum':
+            return self.optimizer.param_groups[0]['momentum']
+        elif self.mom == 'beta':
+            return self.optimizer.param_groups[0]['betas'][0]
+        else:
+            raise KeyError()
 
 
 def annealing_cos(start, end, pct: float):

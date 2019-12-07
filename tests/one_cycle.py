@@ -14,7 +14,6 @@ total_steps = 1000
 scheduler = OneCycleScheduler(optim, max_lr=1e-2, total_steps=total_steps)
 loss_fn = nn.CrossEntropyLoss()
 for it in trange(total_steps):
-    scheduler.step()
     input = torch.randn(2, 3, 224, 224).cuda()
     target = torch.zeros(2).long().cuda()
     output = net(input)
@@ -22,5 +21,6 @@ for it in trange(total_steps):
     optim.zero_grad()
     loss.backward()
     optim.step()
+    scheduler.step()
     tb_writer.add_scalar('test/lr', optim.param_groups[0]['lr'], it)
-    tb_writer.add_scalar('test/mom', optim.param_groups[0]['momentum'], it)
+    tb_writer.add_scalar('test/mom', scheduler.read_momentum(), it)
