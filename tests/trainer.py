@@ -1,5 +1,6 @@
 import argparse
 
+import torch
 import torchvision
 import torchvision.transforms as transforms
 from torch import nn
@@ -13,6 +14,7 @@ from dl_ext.vision_ext.transforms import imagenet_normalize
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--epochs', type=int, default=50)
+parser.add_argument('--local_rank', type=int, default=0)
 parser.add_argument('--pretrained', default=False, action='store_true')
 parser.add_argument('--lr', type=float, default=1e-2)
 # parser.add_argument('--one_cycle', default=False, action='store_true')
@@ -73,13 +75,16 @@ def accuracy(output, y):
 def main():
     trainloader, testloader = build_dataloaders()
     model: ResNet = build_model()
-    optimizer, scheduler = build_optim(model, trainloader)
     criterion = nn.CrossEntropyLoss()
 
-    trainer = BaseTrainer(model, {'train': trainloader, 'val': testloader},
+    trainer = BaseTrainer(model, trainloader, testloader,
                           args.epochs, criterion,
-                          # optimizer, scheduler,
                           metric_functions={'accuracy': accuracy})
+    torch.cuda.set_device(args.local_rank)
+    torch.distributed.init_process_group(
+        backend="nccl", init_method="env://"
+    )
+    trainer.to_distributed()
     trainer.fit()
 
 
