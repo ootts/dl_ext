@@ -40,7 +40,7 @@ def build_dataloaders():
     trainset = torchvision.datasets.CIFAR10(root='./data',
                                             train=True,
                                             download=True, transform=train_transform)
-    trainloader = DataLoader(trainset, batch_size=1024,
+    trainloader = DataLoader(trainset, batch_size=2048,
                              shuffle=True, num_workers=0)
 
     testset = torchvision.datasets.CIFAR10(root='./data', train=False,
@@ -86,21 +86,23 @@ def main():
     trainer = BaseTrainer(model, trainloader, testloader,
                           args.epochs, criterion,
                           metric_functions={'accuracy': accuracy},
-                          save_every=True)
+                          save_every=True,
+                          max_lr=1e-3)
     if num_gpus > 1:
         trainer.to_distributed()
     # train
+    # trainer.find_lr(suggestion=True)
     trainer.fit()
     # load model and evaluate
-    trainer.load('5')
-    results = trainer.get_preds(with_target=True)
-    if is_main_process():
-        preds, tgts = results
-        tgts = []
-        for x, y in testloader.dataset:
-            tgts.append(y)
-        tgts = torch.tensor(tgts).long()
-        print((preds.argmax(1) == tgts).sum().item() / tgts.shape[0])
+    # trainer.load('5')
+    # results = trainer.get_preds(with_target=True)
+    # if is_main_process():
+    #     preds, tgts = results
+    #     tgts = []
+    #     for x, y in testloader.dataset:
+    #         tgts.append(y)
+    #     tgts = torch.tensor(tgts).long()
+    #     print((preds.argmax(1) == tgts).sum().item() / tgts.shape[0])
 
 
 if __name__ == '__main__':

@@ -182,7 +182,51 @@ class OneCycleScheduler(_LRScheduler):
             raise KeyError()
 
 
+class LRFinder(_LRScheduler):
+    def __init__(self, optimizer, start_lr: float = 1e-7, end_lr: float = 10,
+                 num_it: int = 100, stop_div: bool = True, last_epoch=0):
+        if not isinstance(optimizer, Optimizer):
+            raise TypeError('{} is not an Optimizer'.format(
+                type(optimizer).__name__))
+        self.optimizer = optimizer
+        self.start_lr = start_lr
+        self.end_lr = end_lr
+        self.last_epoch = last_epoch
+        base_lrs = self._format_param('base_lr', optimizer, start_lr)
+        for lr, group in zip(base_lrs, optimizer.param_groups):
+            group['lr'] = lr
+
+        self.end_lrs = self._format_param('end_lr', optimizer, end_lr)
+        self.num_it = num_it
+
+        super(LRFinder, self).__init__(optimizer)
+
+    def _format_param(self, name, optimizer, param):
+        """Return correctly formatted lr/momentum for each param group."""
+        if isinstance(param, (list, tuple)):
+            if len(param) != len(optimizer.param_groups):
+                raise ValueError("expected {} values for {}, got {}".format(
+                    len(optimizer.param_groups), name, len(param)))
+            return param
+        else:
+            return [param] * len(optimizer.param_groups)
+
+    def get_lr(self):
+        x = self.last_epoch / self.num_it
+        lrs = []
+        for start_lr, end_lr in zip(self.base_lrs, self.end_lrs):
+            lr = annealing_exp(start_lr, end_lr, x)
+            lrs.append(lr)
+        return lrs
+
+
 def annealing_cos(start, end, pct: float):
     """Cosine anneal from `start` to `end` as pct goes from 0.0 to 1.0."""
     cos_out = np.cos(np.pi * pct) + 1
     return end + (start - end) / 2 * cos_out
+
+
+def annealing_exp(start: float, end: float, pct: float) -> float:
+    # assert 0.0 <= pct <= 1.0
+    "Exponentially anneal from `start` to `end` as pct goes from 0.0 to 1.0."
+    return start * (end / start) ** pct

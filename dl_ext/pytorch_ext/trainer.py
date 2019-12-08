@@ -1,7 +1,9 @@
+import math
 import os
 import time
 from enum import IntEnum
 
+from matplotlib import axes, figure
 from tensorboardX import SummaryWriter
 from termcolor import colored
 from torch import nn
@@ -14,8 +16,10 @@ from torch.utils.data import DataLoader, DistributedSampler
 from tqdm import tqdm
 from .sampler import OrderedDistributedSampler
 from .dist import *
-from .optim import OneCycleScheduler
+from .optim import OneCycleScheduler, LRFinder
 from ..average_meter import AverageMeter
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 def to_cuda(x):
@@ -282,6 +286,63 @@ class BaseTrainer:
                                   timeout=self.valid_dl.timeout, worker_init_fn=self.valid_dl.worker_init_fn)
         self.valid_dl = new_valid_dl
 
+    def find_lr(self, start_lr: float = 1e-7, end_lr: float = 10,
+                num_it: int = 100, stop_div: bool = True,
+                skip_start: int = 10, skip_end: int = 5, suggestion: bool = False):
+        assert self.state == TrainerState.BASE
+        # assert len(self.train_dl) >= num_it
+        self.old_scheduler = self.scheduler
+        self.scheduler = LRFinder(self.optimizer, start_lr, end_lr, num_it, stop_div)
+        loss_meter = AverageMeter()
+        self.model.train()
+
+        it = 0
+        lrs, smooth_losses = [], []
+        for epoch in range(round(math.ceil(num_it / len(self.train_dl)))):
+            bar = tqdm(self.train_dl, leave=False)
+            for batch in bar:
+                if it > num_it: break
+                self.optimizer.zero_grad()
+                x, y = batch_gpu(batch)
+                output = self.model(x)
+                loss = self.loss_function(output, y)
+                loss = loss.mean()
+                loss.backward()
+                self.optimizer.step()
+                self.scheduler.step()
+                # record and plot loss and metrics
+                loss_meter.update(loss.item())
+                lr = self.optimizer.param_groups[0]['lr']
+                lrs.append(lr)
+                smooth_losses.append(loss_meter.avg)
+                bar_vals = {'it': it, 'phase': 'train', 'loss': loss_meter.avg, 'lr': lr}
+                bar.set_postfix(bar_vals)
+                it += 1
+        lrs = _split_list(lrs, skip_start, skip_end)
+        losses = _split_list(smooth_losses, skip_start, skip_end)
+        # losses = [x() for x in losses]
+        fig, ax = plt.subplots(1, 1)
+        ax.plot(lrs, losses)
+        ax.set_ylabel("Loss")
+        ax.set_xlabel("Learning Rate")
+        ax.set_xscale('log')
+        ax.xaxis.set_major_formatter(plt.FormatStrFormatter('%.0e'))
+        if suggestion:
+            try:
+                mg = (np.gradient(np.array(losses))).argmin()
+            except:
+                print("Failed to compute the gradients, there might not be enough points.")
+                return
+            print(f"Min numerical gradient: {lrs[mg]:.2E}")
+            ax.plot(lrs[mg], losses[mg], markersize=10, marker='o', color='red')
+            ml = np.argmin(losses)
+            print(f"Min loss divided by 10: {lrs[ml] / 10:.2E}")
+        fig: figure.Figure
+        ax: axes.Axes
+        fig.savefig(os.path.join(self.output_dir, 'lr.jpg'))
+        # reset scheduler
+        self.scheduler = self.old_scheduler
+
     def save(self, epoch):
         name = os.path.join(self.output_dir, str(epoch) + '.pth')
         net_sd = self.model.module.state_dict() if hasattr(self.model, 'module') else self.model.state_dict()
@@ -304,3 +365,7 @@ class BaseTrainer:
         self.scheduler.load_state_dict(d['scheduler'])
         self.begin_epoch = d['epoch']
         self.best_val_loss = d['best_val_loss']
+
+
+def _split_list(vals, skip_start: int, skip_end: int):
+    return vals[skip_start:-skip_end] if skip_end > 0 else vals[skip_start:]
