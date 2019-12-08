@@ -57,16 +57,16 @@ def build_model():
     return model
 
 
-def build_optim(model, trainloader):
-    # if args.one_cycle:
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
-    scheduler = OneCycleScheduler(optimizer, max_lr=args.lr,
-                                  total_steps=len(trainloader) * args.epochs,
-                                  cycle_momentum=True)
-    # else:
-    #         optimizer = optim.Adam(model.parameters(), lr=args.lr)
-    #         scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20)
-    return optimizer, scheduler
+# def build_optim(model, trainloader):
+#     # if args.one_cycle:
+#     optimizer = optim.Adam(model.parameters(), lr=args.lr)
+#     scheduler = OneCycleScheduler(optimizer, max_lr=args.lr,
+#                                   total_steps=len(trainloader) * args.epochs,
+#                                   cycle_momentum=True)
+#     # else:
+#     #         optimizer = optim.Adam(model.parameters(), lr=args.lr)
+#     #         scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20)
+#     return optimizer, scheduler
 
 
 def accuracy(output, y):
@@ -81,16 +81,17 @@ def main():
             backend="nccl", init_method="env://"
         )
     trainloader, testloader = build_dataloaders()
-    model: ResNet = build_model()
+    model = build_model()
     criterion = nn.CrossEntropyLoss()
-
     trainer = BaseTrainer(model, trainloader, testloader,
                           args.epochs, criterion,
                           metric_functions={'accuracy': accuracy},
                           save_every=True)
     if num_gpus > 1:
         trainer.to_distributed()
-    # trainer.fit()
+    # train
+    trainer.fit()
+    # load model and evaluate
     trainer.load('5')
     results = trainer.get_preds(with_target=True)
     if is_main_process():
