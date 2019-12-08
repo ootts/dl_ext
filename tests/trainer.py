@@ -16,7 +16,7 @@ from dl_ext.vision_ext.transforms import imagenet_normalize
 parser = argparse.ArgumentParser()
 parser.add_argument('--epochs', type=int, default=50)
 parser.add_argument('--local_rank', type=int, default=0)
-parser.add_argument('--pretrained', default=False, action='store_true')
+# parser.add_argument('--pretrained', default=False, action='store_true')
 parser.add_argument('--lr', type=float, default=1e-2)
 # parser.add_argument('--one_cycle', default=False, action='store_true')
 parser.add_argument('--logdir', default='log')
@@ -40,18 +40,18 @@ def build_dataloaders():
     trainset = torchvision.datasets.CIFAR10(root='./data',
                                             train=True,
                                             download=True, transform=train_transform)
-    trainloader = DataLoader(trainset, batch_size=512,
+    trainloader = DataLoader(trainset, batch_size=1024,
                              shuffle=True, num_workers=0)
 
     testset = torchvision.datasets.CIFAR10(root='./data', train=False,
                                            download=True, transform=val_transform)
-    testloader = DataLoader(testset, batch_size=512,
+    testloader = DataLoader(testset, batch_size=1024,
                             shuffle=False, num_workers=0)
     return trainloader, testloader
 
 
 def build_model():
-    model: ResNet = resnet18(pretrained=args.pretrained)
+    model: ResNet = resnet18(pretrained=True)
     model.fc = nn.Linear(model.fc.in_features, 10)
     model.cuda()
     return model
@@ -86,17 +86,19 @@ def main():
 
     trainer = BaseTrainer(model, trainloader, testloader,
                           args.epochs, criterion,
-                          metric_functions={'accuracy': accuracy})
-    trainer.to_distributed()
+                          metric_functions={'accuracy': accuracy},
+                          save_every=True)
+    if num_gpus > 1:
+        trainer.to_distributed()
     # trainer.fit()
-    trainer.load('1')
+    trainer.load('5')
     results = trainer.get_preds(with_target=True)
     if is_main_process():
         preds, tgts = results
-        # tgts = []
-        # for x, y in testloader.dataset:
-        #     tgts.append(y)
-        # tgts = torch.tensor(tgts).long()
+        tgts = []
+        for x, y in testloader.dataset:
+            tgts.append(y)
+        tgts = torch.tensor(tgts).long()
         print((preds.argmax(1) == tgts).sum().item() / tgts.shape[0])
 
 

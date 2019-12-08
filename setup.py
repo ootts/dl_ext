@@ -7,21 +7,18 @@ if sys.version_info < (3,):
 
 setup(
     name='dl_ext',
-    version='1.1.0',
+    version='1.1.1',
     description='Chen Linghao\'s personal utils.',
     packages=find_packages(),
     install_requires=[
-        #         'torch',
-        'matplotlib',
         'numpy',
         'tensorboard',
         'tensorboardX',
-        'progressbar2',
         'torchvision',
-        'fastai',
         'multipledispatch',
-        'imageio',
-        'requests'
+        'requests',
+        'tqdm',
+        'termcolor'
     ],
 )
 # to install this, use 'python setup.py build develop'

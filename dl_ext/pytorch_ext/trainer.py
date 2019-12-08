@@ -41,11 +41,6 @@ def batch_gpu(batch):
     return to_cuda(x), to_cuda(y)
 
 
-def batch_cpu(batch):
-    x, y = batch
-    return to_cpu(x), to_cpu(y)
-
-
 class TrainerState(IntEnum):
     BASE = 1
     PARALLEL = 2
@@ -278,7 +273,6 @@ class BaseTrainer:
                                   sampler=train_sampler, num_workers=self.train_dl.num_workers,
                                   collate_fn=self.train_dl.collate_fn, pin_memory=self.train_dl.pin_memory,
                                   timeout=self.train_dl.timeout, worker_init_fn=self.train_dl.worker_init_fn)
-        # new_train_dl = self.train_dl.new(shuffle=False, sampler=train_sampler)
         self.train_dl = new_train_dl
         self.old_valid_dl = self.valid_dl
         valid_sampler = DistributedSampler(self.valid_dl.dataset, shuffle=False)
