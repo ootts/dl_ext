@@ -1,20 +1,21 @@
 import os
+import time
+from enum import IntEnum
 
+from tensorboardX import SummaryWriter
+from termcolor import colored
 from torch import nn
 from torch.nn import DataParallel
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Adam
-from torch.optim.optimizer import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
+from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader, DistributedSampler
 from tqdm import tqdm
-from .model import save_model
+from .sampler import OrderedDistributedSampler
+from .dist import *
 from .optim import OneCycleScheduler
 from ..average_meter import AverageMeter
-from tensorboardX import SummaryWriter
-from enum import IntEnum
-from .dist import *
-import os
 
 
 def to_cuda(x):
@@ -88,13 +89,10 @@ class BaseTrainer:
         for metric in self.metric_functions.keys():
             metric_ams[metric] = AverageMeter()
         self.model.train()
-        bar = tqdm(self.train_dl)
+        bar = tqdm(self.train_dl, leave=False) if is_main_process() else self.train_dl
         for batch in bar:
             self.optimizer.zero_grad()
             x, y = batch_gpu(batch)
-            # import pdb
-            # pdb.set_trace()
-            print(os.getpid(), x.device, self.model.device_ids, next(self.model.parameters()).device)
             output = self.model(x)
             loss = self.loss_function(output, y)
             loss = loss.mean()
@@ -104,10 +102,10 @@ class BaseTrainer:
                 self.scheduler.step()
             # record and plot loss and metrics
             reduced_loss = reduce_loss(loss)
-            loss_meter.update(reduced_loss.item())
             reduced_output = torch.cat(all_gather(output), 0)
             reduced_y = torch.cat(all_gather(y), 0)
-            if get_rank() == 0:
+            if is_main_process():
+                loss_meter.update(reduced_loss.item())
                 lr = self.optimizer.param_groups[0]['lr']
                 self.tb_writer.add_scalar('train/loss', reduced_loss.item(), self.global_steps)
                 self.tb_writer.add_scalar('train/lr', lr, self.global_steps)
@@ -122,6 +120,12 @@ class BaseTrainer:
                     bar_vals[k] = v
                 bar.set_postfix(bar_vals)
             self.global_steps += 1
+        if is_main_process():
+            metric_msgs = ['epoch %d, train, loss %.4f' % (epoch, loss_meter.avg)]
+            for metric, v in metric_ams.items():
+                metric_msgs.append('%s %.4f' % (metric, v.avg))
+            s = ', '.join(metric_msgs)
+            print(s)
         if not isinstance(self.scheduler, OneCycleScheduler):
             self.scheduler.step()
 
@@ -132,17 +136,17 @@ class BaseTrainer:
         for metric in self.metric_functions.keys():
             metric_ams[metric] = AverageMeter()
         self.model.eval()
-        bar = tqdm(self.valid_dl)
+        bar = tqdm(self.valid_dl, leave=False) if is_main_process() else self.valid_dl
         for batch in bar:
             x, y = batch_gpu(batch)
             output = self.model(x)
             loss = self.loss_function(output, y)
             loss = loss.mean()
             reduced_loss = reduce_loss(loss)
+            reduced_output = torch.cat(all_gather(output), 0)
+            reduced_y = torch.cat(all_gather(y), 0)
             if is_main_process():
                 loss_meter.update(reduced_loss.item())
-                reduced_output = torch.cat(all_gather(output), 0)
-                reduced_y = torch.cat(all_gather(y), 0)
                 metrics = {}
                 for metric, f in self.metric_functions.items():
                     s = f(reduced_output, reduced_y).mean().item()
@@ -153,6 +157,11 @@ class BaseTrainer:
                     bar_vals[k] = v
                 bar.set_postfix(bar_vals)
         if is_main_process():
+            metric_msgs = ['epoch %d, val, loss %.4f' % (epoch, loss_meter.avg)]
+            for metric, v in metric_ams.items():
+                metric_msgs.append('%s %.4f' % (metric, v.avg))
+            s = ', '.join(metric_msgs)
+            print(s)
             self.tb_writer.add_scalar('val/loss', loss_meter.avg, epoch)
             for metric, s in metric_ams.items():
                 self.tb_writer.add_scalar(f'val/{metric}', s.avg, epoch)
@@ -161,28 +170,33 @@ class BaseTrainer:
     def fit(self):
         os.makedirs(self.output_dir, exist_ok=True)
         num_epochs = self.num_epochs
+        begin = time.time()
         for epoch in range(self.begin_epoch, num_epochs):
             self.train(epoch)
+            synchronize()
             val_loss = self.val(epoch)
+            synchronize()
             if is_main_process():
                 if self.save_every:
-                    save_model(self.model, self.optimizer, self.scheduler,
-                               epoch, self.output_dir)
+                    self.save(epoch)
                 elif val_loss < self.best_val_loss:
-                    print('Epoch %d, save better model.' % epoch)
+                    print(colored('Better model found at epoch %d with val_loss %.4f.' % (epoch, val_loss), 'red'))
                     self.best_val_loss = val_loss
-                    save_model(self.model, self.optimizer, self.scheduler,
-                               epoch, self.output_dir)
-        print('Training finished.')
+                    self.save(epoch)
+            synchronize()
+        if is_main_process():
+            print('Training finished. Total time %d s' % (time.time() - begin))
 
     @torch.no_grad()
     def get_preds(self, dataset='valid', with_target=False):
+        if get_world_size() > 1:
+            return self.get_preds_dist(dataset, with_target)
         self.model.eval()
         assert dataset in ['train', 'valid']
         if dataset == 'train':
-            bar = tqdm(self.train_dl)
+            bar = tqdm(self.train_dl) if is_main_process() else self.train_dl
         else:
-            bar = tqdm(self.valid_dl)
+            bar = tqdm(self.valid_dl) if is_main_process() else self.valid_dl
         outputs = []
         targets = []
         for batch in bar:
@@ -192,12 +206,49 @@ class BaseTrainer:
             outputs.append(output)
             if with_target:
                 targets.append(to_cpu(y))
-        outputs = torch.stack(outputs)
+        outputs = torch.cat(outputs)
         if with_target:
-            targets = torch.stack(targets)
+            targets = torch.cat(targets)
             return outputs, targets
         else:
             return outputs
+
+    @torch.no_grad()
+    def get_preds_dist(self, dataset='valid', with_target=False):
+        old_valid_dl = self.valid_dl
+        valid_sampler = OrderedDistributedSampler(self.valid_dl.dataset, get_world_size(), rank=get_rank())
+        self.valid_dl = DataLoader(self.valid_dl.dataset, self.valid_dl.batch_size, shuffle=False,
+                                   sampler=valid_sampler, num_workers=self.valid_dl.num_workers,
+                                   collate_fn=self.valid_dl.collate_fn, pin_memory=self.valid_dl.pin_memory,
+                                   timeout=self.valid_dl.timeout, worker_init_fn=self.valid_dl.worker_init_fn)
+        self.model.eval()
+        if dataset == 'train':
+            bar = tqdm(self.train_dl) if is_main_process() else self.train_dl
+        else:
+            bar = tqdm(self.valid_dl) if is_main_process() else self.valid_dl
+        outputs = []
+        targets = []
+        for batch in bar:
+            x, y = batch_gpu(batch)
+            output = self.model(x)
+            output = to_cpu(output)
+            outputs.append(output)
+            if with_target:
+                targets.append(to_cpu(y))
+        self.valid_dl = old_valid_dl
+        outputs = torch.cat(outputs)
+        all_outputs = all_gather(outputs)
+        if with_target:
+            targets = torch.cat(targets)
+            all_targets = all_gather(targets)
+        if not is_main_process():
+            return
+        all_outputs = torch.cat(all_outputs, dim=0).cpu()[:len(self.valid_dl.dataset)]
+        if with_target:
+            all_targets = torch.cat(all_targets, dim=0).cpu()[:len(self.valid_dl.dataset)]
+            return all_outputs, all_targets
+        else:
+            return all_outputs
 
     def to_base(self):
         if self.state == TrainerState.BASE:
@@ -218,13 +269,9 @@ class BaseTrainer:
     def to_distributed(self):
         assert dist.is_available() and dist.is_initialized()
         local_rank = dist.get_rank()
-        print(os.getpid(), local_rank)
-        self.model.cuda(local_rank)
         self.model = DistributedDataParallel(self.model, [local_rank],
-                                        output_device=local_rank,
-                                        broadcast_buffers=False)
-        # print(os.getpid(), local_rank, next(model.parameters()).device)
-        #  model
+                                             output_device=local_rank,
+                                             broadcast_buffers=False)
         self.old_train_dl = self.train_dl
         train_sampler = DistributedSampler(self.train_dl.dataset, shuffle=True)
         new_train_dl = DataLoader(self.train_dl.dataset, self.train_dl.batch_size, shuffle=False,
@@ -239,11 +286,10 @@ class BaseTrainer:
                                   sampler=valid_sampler, num_workers=self.valid_dl.num_workers,
                                   collate_fn=self.valid_dl.collate_fn, pin_memory=self.valid_dl.pin_memory,
                                   timeout=self.valid_dl.timeout, worker_init_fn=self.valid_dl.worker_init_fn)
-        # new_valid_dl = self.valid_dl.new(shuffle=False, sampler=valid_sampler)
         self.valid_dl = new_valid_dl
 
-    def save(self, name, epoch):
-        name = os.path.join(self.output_dir, name + '.pth')
+    def save(self, epoch):
+        name = os.path.join(self.output_dir, str(epoch) + '.pth')
         net_sd = self.model.module.state_dict() if hasattr(self.model, 'module') else self.model.state_dict()
         d = {'model': net_sd,
              'optimizer': self.optimizer.state_dict(),

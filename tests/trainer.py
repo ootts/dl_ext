@@ -1,4 +1,5 @@
 import argparse
+import os
 
 import torch
 import torchvision
@@ -9,7 +10,7 @@ from torch.utils.data import DataLoader
 from torchvision.models import resnet18, ResNet
 
 from dl_ext.pytorch_ext import OneCycleScheduler
-from dl_ext.pytorch_ext.trainer import BaseTrainer
+from dl_ext.pytorch_ext.trainer import BaseTrainer, is_main_process, get_world_size
 from dl_ext.vision_ext.transforms import imagenet_normalize
 
 parser = argparse.ArgumentParser()
@@ -39,13 +40,13 @@ def build_dataloaders():
     trainset = torchvision.datasets.CIFAR10(root='./data',
                                             train=True,
                                             download=True, transform=train_transform)
-    trainloader = DataLoader(trainset, batch_size=2048,
-                             shuffle=True, num_workers=8)
+    trainloader = DataLoader(trainset, batch_size=512,
+                             shuffle=True, num_workers=0)
 
     testset = torchvision.datasets.CIFAR10(root='./data', train=False,
                                            download=True, transform=val_transform)
-    testloader = DataLoader(testset, batch_size=2048,
-                            shuffle=False, num_workers=8)
+    testloader = DataLoader(testset, batch_size=512,
+                            shuffle=False, num_workers=0)
     return trainloader, testloader
 
 
@@ -73,6 +74,12 @@ def accuracy(output, y):
 
 
 def main():
+    num_gpus = int(os.environ["WORLD_SIZE"]) if "WORLD_SIZE" in os.environ else 1
+    if num_gpus > 1:
+        torch.cuda.set_device(args.local_rank)
+        torch.distributed.init_process_group(
+            backend="nccl", init_method="env://"
+        )
     trainloader, testloader = build_dataloaders()
     model: ResNet = build_model()
     criterion = nn.CrossEntropyLoss()
@@ -80,12 +87,17 @@ def main():
     trainer = BaseTrainer(model, trainloader, testloader,
                           args.epochs, criterion,
                           metric_functions={'accuracy': accuracy})
-    torch.cuda.set_device(args.local_rank)
-    torch.distributed.init_process_group(
-        backend="nccl", init_method="env://"
-    )
     trainer.to_distributed()
-    trainer.fit()
+    # trainer.fit()
+    trainer.load('1')
+    results = trainer.get_preds(with_target=True)
+    if is_main_process():
+        preds, tgts = results
+        # tgts = []
+        # for x, y in testloader.dataset:
+        #     tgts.append(y)
+        # tgts = torch.tensor(tgts).long()
+        print((preds.argmax(1) == tgts).sum().item() / tgts.shape[0])
 
 
 if __name__ == '__main__':
