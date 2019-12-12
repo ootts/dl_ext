@@ -21,6 +21,15 @@ def reduce_loss(loss):
     return loss
 
 
+def reduce_tensor(tensor):
+    world_size = get_world_size()
+    if world_size < 2:
+        return tensor
+    with torch.no_grad():
+        dist.reduce(tensor, dst=0)
+    return tensor
+
+
 def get_world_size():
     if not dist.is_available():
         return 1

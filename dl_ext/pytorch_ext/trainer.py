@@ -101,8 +101,12 @@ class BaseTrainer:
                 self.scheduler.step()
             # record and plot loss and metrics
             reduced_loss = reduce_loss(loss)
-            reduced_output = torch.cat(all_gather(output), 0)
-            reduced_y = torch.cat(all_gather(y), 0)
+            if get_world_size() > 1:
+                reduced_output = reduce_tensor(output)
+                reduced_y = reduce_tensor(output)
+            else:
+                reduced_output = output
+                reduced_y = y
             if is_main_process():
                 loss_meter.update(reduced_loss.item())
                 lr = self.optimizer.param_groups[0]['lr']
@@ -142,8 +146,12 @@ class BaseTrainer:
             loss = self.loss_function(output, y)
             loss = loss.mean()
             reduced_loss = reduce_loss(loss)
-            reduced_output = torch.cat(all_gather(output), 0)
-            reduced_y = torch.cat(all_gather(y), 0)
+            if get_world_size() > 1:
+                reduced_output = reduce_tensor(output)
+                reduced_y = reduce_tensor(y)
+            else:
+                reduced_output = output
+                reduced_y = y
             if is_main_process():
                 loss_meter.update(reduced_loss.item())
                 metrics = {}
