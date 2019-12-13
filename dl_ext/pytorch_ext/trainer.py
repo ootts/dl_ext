@@ -201,9 +201,17 @@ class BaseTrainer:
         self.model.eval()
         assert dataset in ['train', 'valid']
         if dataset == 'train':
-            bar = tqdm(self.train_dl) if is_main_process() else self.train_dl
+            ordered_train_dl = DataLoader(self.train_dl.dataset, self.train_dl.batch_size, shuffle=False,
+                                          sampler=None, num_workers=self.train_dl.num_workers,
+                                          collate_fn=self.train_dl.collate_fn, pin_memory=self.train_dl.pin_memory,
+                                          timeout=self.train_dl.timeout, worker_init_fn=self.train_dl.worker_init_fn)
+            bar = tqdm(ordered_train_dl)
         else:
-            bar = tqdm(self.valid_dl) if is_main_process() else self.valid_dl
+            ordered_valid_dl = DataLoader(self.valid_dl.dataset, self.valid_dl.batch_size, shuffle=False,
+                                          sampler=None, num_workers=self.valid_dl.num_workers,
+                                          collate_fn=self.valid_dl.collate_fn, pin_memory=self.valid_dl.pin_memory,
+                                          timeout=self.valid_dl.timeout, worker_init_fn=self.valid_dl.worker_init_fn)
+            bar = tqdm(ordered_valid_dl)
         outputs = []
         targets = []
         for batch in bar:
@@ -222,17 +230,23 @@ class BaseTrainer:
 
     @torch.no_grad()
     def get_preds_dist(self, dataset='valid', with_target=False):
-        old_valid_dl = self.valid_dl
-        valid_sampler = OrderedDistributedSampler(self.valid_dl.dataset, get_world_size(), rank=get_rank())
-        self.valid_dl = DataLoader(self.valid_dl.dataset, self.valid_dl.batch_size, shuffle=False,
-                                   sampler=valid_sampler, num_workers=self.valid_dl.num_workers,
-                                   collate_fn=self.valid_dl.collate_fn, pin_memory=self.valid_dl.pin_memory,
-                                   timeout=self.valid_dl.timeout, worker_init_fn=self.valid_dl.worker_init_fn)
         self.model.eval()
         if dataset == 'train':
-            bar = tqdm(self.train_dl) if is_main_process() else self.train_dl
+            train_sampler = OrderedDistributedSampler(self.train_dl.dataset, get_world_size(), rank=get_rank())
+            ordered_dist_train_dl = DataLoader(self.train_dl.dataset, self.train_dl.batch_size, shuffle=False,
+                                               sampler=train_sampler, num_workers=self.train_dl.num_workers,
+                                               collate_fn=self.train_dl.collate_fn, pin_memory=self.train_dl.pin_memory,
+                                               timeout=self.train_dl.timeout,
+                                               worker_init_fn=self.train_dl.worker_init_fn)
+            bar = tqdm(ordered_dist_train_dl) if is_main_process() else ordered_dist_train_dl
         else:
-            bar = tqdm(self.valid_dl) if is_main_process() else self.valid_dl
+            valid_sampler = OrderedDistributedSampler(self.valid_dl.dataset, get_world_size(), rank=get_rank())
+            ordered_dist_valid_dl = DataLoader(self.valid_dl.dataset, self.valid_dl.batch_size, shuffle=False,
+                                               sampler=valid_sampler, num_workers=self.valid_dl.num_workers,
+                                               collate_fn=self.valid_dl.collate_fn, pin_memory=self.valid_dl.pin_memory,
+                                               timeout=self.valid_dl.timeout,
+                                               worker_init_fn=self.valid_dl.worker_init_fn)
+            bar = tqdm(ordered_dist_valid_dl) if is_main_process() else ordered_dist_valid_dl
         outputs = []
         targets = []
         for batch in bar:
@@ -242,7 +256,6 @@ class BaseTrainer:
             outputs.append(output)
             if with_target:
                 targets.append(to_cpu(y))
-        self.valid_dl = old_valid_dl
         outputs = torch.cat(outputs)
         all_outputs = all_gather(outputs)
         if with_target:
