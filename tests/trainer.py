@@ -92,17 +92,17 @@ def main():
         trainer.to_distributed()
     # train
     # trainer.find_lr(suggestion=True)
-    trainer.fit()
+    # trainer.fit()
     # load model and evaluate
-    # trainer.load('5')
-    # results = trainer.get_preds(with_target=True)
-    # if is_main_process():
-    #     preds, tgts = results
-    #     tgts = []
-    #     for x, y in testloader.dataset:
-    #         tgts.append(y)
-    #     tgts = torch.tensor(tgts).long()
-    #     print((preds.argmax(1) == tgts).sum().item() / tgts.shape[0])
+    trainer.load('2')
+    results = trainer.get_preds(with_target=True)
+    if is_main_process():
+        preds, tgts = results
+        tgts = []
+        for x, y in testloader.dataset:
+            tgts.append(y)
+        tgts = torch.tensor(tgts).long()
+        print((preds.argmax(1) == tgts).sum().item() / tgts.shape[0])
 
 
 if __name__ == '__main__':

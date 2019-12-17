@@ -45,6 +45,15 @@ def batch_gpu(batch):
     return to_cuda(x), to_cuda(y)
 
 
+def format_time(t):
+    t = int(t)
+    h, m, s = t // 3600, (t // 60) % 60, t % 60
+    if h != 0:
+        return f'{h}:{m:02d}:{s:02d}'
+    else:
+        return f'{m:02d}:{s:02d}'
+
+
 class TrainerState(IntEnum):
     BASE = 1
     PARALLEL = 2
@@ -78,7 +87,8 @@ class BaseTrainer:
         if metric_functions is None:
             metric_functions = {}
         self.metric_functions = metric_functions
-        self.tb_writer = SummaryWriter(output_dir, flush_secs=20)
+        if is_main_process():
+            self.tb_writer = SummaryWriter(output_dir, flush_secs=20)
         self.global_steps = 0
         self.best_val_loss = 100000
 
@@ -89,6 +99,7 @@ class BaseTrainer:
             metric_ams[metric] = AverageMeter()
         self.model.train()
         bar = tqdm(self.train_dl, leave=False) if is_main_process() else self.train_dl
+        begin = time.time()
         for batch in bar:
             self.optimizer.zero_grad()
             x, y = batch_gpu(batch)
@@ -101,30 +112,28 @@ class BaseTrainer:
                 self.scheduler.step()
             # record and plot loss and metrics
             reduced_loss = reduce_loss(loss)
-            if get_world_size() > 1:
-                reduced_output = reduce_tensor(output)
-                reduced_y = reduce_tensor(output)
-            else:
-                reduced_output = output
-                reduced_y = y
+            metrics = {}
+            for metric, f in self.metric_functions.items():
+                s = f(output, y).mean()
+                reduced_s = reduce_loss(s)
+                metrics[metric] = reduced_s
             if is_main_process():
                 loss_meter.update(reduced_loss.item())
                 lr = self.optimizer.param_groups[0]['lr']
                 self.tb_writer.add_scalar('train/loss', reduced_loss.item(), self.global_steps)
                 self.tb_writer.add_scalar('train/lr', lr, self.global_steps)
-                metrics = {}
-                for metric, f in self.metric_functions.items():
-                    s = f(reduced_output, reduced_y).mean().item()
-                    metric_ams[metric].update(s)
-                    metrics[metric] = metric_ams[metric].avg
-                    self.tb_writer.add_scalar(f'train/{metric}', s, self.global_steps)
                 bar_vals = {'epoch': epoch, 'phase': 'train', 'loss': loss_meter.avg, 'lr': lr}
                 for k, v in metrics.items():
-                    bar_vals[k] = v
+                    metric_ams[k].update(v.item())
+                    self.tb_writer.add_scalar(f'train/{k}', v.item(), self.global_steps)
+                    bar_vals[k] = metric_ams[k].avg
                 bar.set_postfix(bar_vals)
             self.global_steps += 1
+        torch.cuda.synchronize()
+        epoch_time = format_time(time.time() - begin)
         if is_main_process():
-            metric_msgs = ['epoch %d, train, loss %.4f' % (epoch, loss_meter.avg)]
+            metric_msgs = ['epoch %d, train, loss %.4f, time %s' % (
+                epoch, loss_meter.avg, epoch_time)]
             for metric, v in metric_ams.items():
                 metric_msgs.append('%s %.4f' % (metric, v.avg))
             s = ', '.join(metric_msgs)
@@ -140,31 +149,31 @@ class BaseTrainer:
             metric_ams[metric] = AverageMeter()
         self.model.eval()
         bar = tqdm(self.valid_dl, leave=False) if is_main_process() else self.valid_dl
+        begin = time.time()
         for batch in bar:
             x, y = batch_gpu(batch)
             output = self.model(x)
             loss = self.loss_function(output, y)
             loss = loss.mean()
             reduced_loss = reduce_loss(loss)
-            if get_world_size() > 1:
-                reduced_output = reduce_tensor(output)
-                reduced_y = reduce_tensor(y)
-            else:
-                reduced_output = output
-                reduced_y = y
+            metrics = {}
+            for metric, f in self.metric_functions.items():
+                s = f(output, y).mean()
+                reduced_s = reduce_loss(s)
+                metrics[metric] = reduced_s
             if is_main_process():
                 loss_meter.update(reduced_loss.item())
-                metrics = {}
-                for metric, f in self.metric_functions.items():
-                    s = f(reduced_output, reduced_y).mean().item()
-                    metric_ams[metric].update(s)
-                    metrics[metric] = metric_ams[metric].avg
                 bar_vals = {'epoch': epoch, 'phase': 'val', 'loss': loss_meter.avg}
                 for k, v in metrics.items():
-                    bar_vals[k] = v
+                    metric_ams[k].update(v.item())
+                    self.tb_writer.add_scalar(f'val/{k}', v.item(), self.global_steps)
+                    bar_vals[k] = metric_ams[k].avg
                 bar.set_postfix(bar_vals)
+        torch.cuda.synchronize()
+        epoch_time = format_time(time.time() - begin)
         if is_main_process():
-            metric_msgs = ['epoch %d, val, loss %.4f' % (epoch, loss_meter.avg)]
+            metric_msgs = ['epoch %d, val, loss %.4f, time %s' % (
+                epoch, loss_meter.avg, epoch_time)]
             for metric, v in metric_ams.items():
                 metric_msgs.append('%s %.4f' % (metric, v.avg))
             s = ', '.join(metric_msgs)
@@ -192,7 +201,7 @@ class BaseTrainer:
                     self.save(epoch)
             synchronize()
         if is_main_process():
-            print('Training finished. Total time %d s' % (time.time() - begin))
+            print('Training finished. Total time %s' % (format_time(time.time() - begin)))
 
     @torch.no_grad()
     def get_preds(self, dataset='valid', with_target=False):
@@ -376,7 +385,7 @@ class BaseTrainer:
 
     def load(self, name):
         name = os.path.join(self.output_dir, name + '.pth')
-        d = torch.load(name)
+        d = torch.load(name, 'cpu')
         net_sd = d['model']
         if hasattr(self.model, 'module'):
             self.model.module.load_state_dict(net_sd)
