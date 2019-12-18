@@ -99,7 +99,7 @@ class OneCycleScheduler(_LRScheduler):
 
         self.step_size_up = float(total_steps * pct_start)
         self.step_size_down = float(total_steps - self.step_size_up)
-        self.total_size = total_steps
+        self.total_steps = total_steps
         self.step_ratio = pct_start
 
         self.cycle_momentum = cycle_momentum
@@ -147,7 +147,7 @@ class OneCycleScheduler(_LRScheduler):
         If `self.cycle_momentum` is ``True``, this function has a side effect of
         updating the optimizer's momentum.
         """
-        x = self.last_epoch / self.total_size
+        x = self.last_epoch / self.total_steps
         lrs = []
         for base_lr, max_lr, end_lr in zip(self.base_lrs, self.max_lrs, self.end_lrs):
             if x <= self.step_ratio:

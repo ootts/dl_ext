@@ -166,7 +166,7 @@ class BaseTrainer:
                 bar_vals = {'epoch': epoch, 'phase': 'val', 'loss': loss_meter.avg}
                 for k, v in metrics.items():
                     metric_ams[k].update(v.item())
-                    self.tb_writer.add_scalar(f'val/{k}', v.item(), self.global_steps)
+                    self.tb_writer.add_scalar(f'val/{k}', v.item(), epoch)
                     bar_vals[k] = metric_ams[k].avg
                 bar.set_postfix(bar_vals)
         torch.cuda.synchronize()
@@ -284,16 +284,31 @@ class BaseTrainer:
             return
         elif self.state == TrainerState.PARALLEL:
             self.model = self.model.module
+            if isinstance(self.scheduler, OneCycleScheduler):
+                world_size = get_world_size()
+                self.scheduler.total_steps *= world_size
+                self.scheduler.step_size_up *= world_size
+                self.scheduler.step_size_down *= world_size
         else:
             self.model = self.model.module
             self.train_dl = self.old_train_dl
             self.valid_dl = self.old_valid_dl
+            if isinstance(self.scheduler, OneCycleScheduler):
+                world_size = get_world_size()
+                self.scheduler.total_steps *= world_size
+                self.scheduler.step_size_up *= world_size
+                self.scheduler.step_size_down *= world_size
 
     def to_parallel(self):
         assert self.state == TrainerState.BASE
         devices = os.environ['CUDA_VISIBLE_DEVICES']
         print('visible devices', devices)
         self.model = DataParallel(self.model)
+        if isinstance(self.scheduler, OneCycleScheduler):
+            world_size = get_world_size()
+            self.scheduler.total_steps //= world_size
+            self.scheduler.step_size_up //= world_size
+            self.scheduler.step_size_down //= world_size
 
     def to_distributed(self):
         assert dist.is_available() and dist.is_initialized()
@@ -315,6 +330,11 @@ class BaseTrainer:
                                   collate_fn=self.valid_dl.collate_fn, pin_memory=self.valid_dl.pin_memory,
                                   timeout=self.valid_dl.timeout, worker_init_fn=self.valid_dl.worker_init_fn)
         self.valid_dl = new_valid_dl
+        if isinstance(self.scheduler, OneCycleScheduler):
+            world_size = get_world_size()
+            self.scheduler.total_steps /= world_size
+            self.scheduler.step_size_up /= world_size
+            self.scheduler.step_size_down /= world_size
 
     def find_lr(self, start_lr: float = 1e-7, end_lr: float = 10,
                 num_it: int = 100, stop_div: bool = True,

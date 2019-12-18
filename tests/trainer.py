@@ -14,7 +14,7 @@ from dl_ext.pytorch_ext.trainer import BaseTrainer, is_main_process, get_world_s
 from dl_ext.vision_ext.transforms import imagenet_normalize
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--epochs', type=int, default=50)
+parser.add_argument('--epochs', type=int, default=10)
 parser.add_argument('--local_rank', type=int, default=0)
 # parser.add_argument('--pretrained', default=False, action='store_true')
 parser.add_argument('--lr', type=float, default=1e-2)
@@ -92,17 +92,17 @@ def main():
         trainer.to_distributed()
     # train
     # trainer.find_lr(suggestion=True)
-    # trainer.fit()
+    trainer.fit()
     # load model and evaluate
-    trainer.load('2')
-    results = trainer.get_preds(with_target=True)
-    if is_main_process():
-        preds, tgts = results
-        tgts = []
-        for x, y in testloader.dataset:
-            tgts.append(y)
-        tgts = torch.tensor(tgts).long()
-        print((preds.argmax(1) == tgts).sum().item() / tgts.shape[0])
+    # trainer.load('2')
+    # results = trainer.get_preds(with_target=True)
+    # if is_main_process():
+    #     preds, tgts = results
+    #     tgts = []
+    #     for x, y in testloader.dataset:
+    #         tgts.append(y)
+    #     tgts = torch.tensor(tgts).long()
+    #     print((preds.argmax(1) == tgts).sum().item() / tgts.shape[0])
 
 
 if __name__ == '__main__':
