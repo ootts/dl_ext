@@ -1,5 +1,7 @@
+import logging
 import math
 import os
+import sys
 import time
 from enum import IntEnum
 
@@ -91,6 +93,7 @@ class BaseTrainer:
             self.tb_writer = SummaryWriter(output_dir, flush_secs=20)
         self.global_steps = 0
         self.best_val_loss = 100000
+        self.logger = self._setup_logger()
 
     def train(self, epoch):
         loss_meter = AverageMeter()
@@ -137,7 +140,7 @@ class BaseTrainer:
             for metric, v in metric_ams.items():
                 metric_msgs.append('%s %.4f' % (metric, v.avg))
             s = ', '.join(metric_msgs)
-            print(s)
+            self.logger.info(s)
         if not isinstance(self.scheduler, OneCycleScheduler):
             self.scheduler.step()
 
@@ -177,7 +180,7 @@ class BaseTrainer:
             for metric, v in metric_ams.items():
                 metric_msgs.append('%s %.4f' % (metric, v.avg))
             s = ', '.join(metric_msgs)
-            print(s)
+            self.logger.info(s)
             self.tb_writer.add_scalar('val/loss', loss_meter.avg, epoch)
             for metric, s in metric_ams.items():
                 self.tb_writer.add_scalar(f'val/{metric}', s.avg, epoch)
@@ -196,12 +199,13 @@ class BaseTrainer:
                 if self.save_every:
                     self.save(epoch)
                 elif val_loss < self.best_val_loss:
-                    print(colored('Better model found at epoch %d with val_loss %.4f.' % (epoch, val_loss), 'red'))
+                    self.logger.info(
+                        colored('Better model found at epoch %d with val_loss %.4f.' % (epoch, val_loss), 'red'))
                     self.best_val_loss = val_loss
                     self.save(epoch)
             synchronize()
         if is_main_process():
-            print('Training finished. Total time %s' % (format_time(time.time() - begin)))
+            self.logger.info('Training finished. Total time %s' % (format_time(time.time() - begin)))
 
     @torch.no_grad()
     def get_preds(self, dataset='valid', with_target=False):
@@ -415,6 +419,24 @@ class BaseTrainer:
         self.scheduler.load_state_dict(d['scheduler'])
         self.begin_epoch = d['epoch']
         self.best_val_loss = d['best_val_loss']
+
+    def _setup_logger(self):
+        logger = logging.getLogger()
+        logger.setLevel(logging.DEBUG)
+        # don't log results for the non-master process
+        if get_rank() > 0:
+            return logger
+        ch = logging.StreamHandler(stream=sys.stdout)
+        ch.setLevel(logging.DEBUG)
+        formatter = logging.Formatter("%(asctime)s %(name)s %(levelname)s: %(message)s")
+        ch.setFormatter(formatter)
+        logger.addHandler(ch)
+
+        fh = logging.FileHandler(os.path.join(self.output_dir, 'log.txt'))
+        fh.setLevel(logging.DEBUG)
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
+        return logger
 
 
 def _split_list(vals, skip_start: int, skip_end: int):
