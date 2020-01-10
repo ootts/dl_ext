@@ -2,7 +2,7 @@ import os
 import pickle
 
 from tqdm import tqdm
-
+import numpy as np
 
 class ImageInfoCache:
     instance = None
@@ -35,7 +35,7 @@ class ImageInfoCache:
             img_shapes = []
             n = len(os.listdir(os.path.join(self.root, 'object', self.split, 'image_2')))
             for i in tqdm(range(n)):
-                img2 = load_image_2(self.root, self.split, i)
+                img2 = np.array(load_image_2(self.root, self.split, i))
                 img_shapes.append(img2.shape)
             pickle.dump(img_shapes, open(self.cache_path, 'wb'))
             print('Done.')
