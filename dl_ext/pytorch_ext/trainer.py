@@ -64,10 +64,11 @@ class TrainerState(IntEnum):
 
 class BaseTrainer:
 
-    def __init__(self, model: nn.Module, train_dl: DataLoader, valid_dl: DataLoader, num_epochs: int,
-                 loss_function: callable, optimizer: Optimizer = None, scheduler: _LRScheduler = None,
-                 output_dir: str = 'models', max_lr: float = 1e-2, save_every: bool = False,
-                 metric_functions: dict = None):
+    def __init__(self, model: nn.Module, train_dl: DataLoader, valid_dl: DataLoader,
+                 num_epochs: int, loss_function: callable,
+                 optimizer: Optimizer = None, scheduler: _LRScheduler = None,
+                 output_dir: str = 'models', max_lr: float = 1e-2, weight_decay: float = 0.0,
+                 save_every: bool = False, metric_functions: dict = None):
         self.loss_function = loss_function
         self.train_dl = train_dl
         self.valid_dl = valid_dl
@@ -79,7 +80,7 @@ class BaseTrainer:
         self.save_every = save_every
         self.state = TrainerState.BASE
         if optimizer is None:
-            optimizer = Adam(model.parameters(), lr=max_lr)
+            optimizer = Adam(model.parameters(), lr=max_lr, weight_decay=weight_decay)
         self.optimizer = optimizer
         if scheduler is None:
             scheduler = OneCycleScheduler(self.optimizer, self.max_lr,
