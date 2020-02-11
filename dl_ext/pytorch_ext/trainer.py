@@ -3,98 +3,66 @@ import math
 import os
 import sys
 import time
-from enum import IntEnum
-
+from dataclasses import dataclass, field
 from matplotlib import axes, figure
 from tensorboardX import SummaryWriter
 from termcolor import colored
-from torch import nn
 from torch.nn import DataParallel
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Adam
+from torch.optim.adamw import AdamW
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader, DistributedSampler
 from tqdm import tqdm
 from .sampler import OrderedDistributedSampler
 from .dist import *
-from .optim import OneCycleScheduler, LRFinder
+from .optim import *
 from ..average_meter import AverageMeter
 import matplotlib.pyplot as plt
 import numpy as np
+from .utils import *
 
 
-def to_cuda(x):
-    if hasattr(x, 'cuda'):
-        return x.cuda(device=get_rank())
-    elif isinstance(x, (list, tuple)):
-        return [to_cuda(xi) for xi in x]
-    elif isinstance(x, dict):
-        return {k: to_cuda(v) for k, v in x.items()}
-
-
-def to_cpu(x):
-    if hasattr(x, 'cpu'):
-        return x.cpu()
-    elif isinstance(x, (list, tuple)):
-        return [to_cpu(xi) for xi in x]
-    elif isinstance(x, dict):
-        return {k: to_cpu(v) for k, v in x.items()}
-
-
-def batch_gpu(batch):
-    x, y = batch
-    return to_cuda(x), to_cuda(y)
-
-
-def format_time(t):
-    t = int(t)
-    h, m, s = t // 3600, (t // 60) % 60, t % 60
-    if h != 0:
-        return f'{h}:{m:02d}:{s:02d}'
-    else:
-        return f'{m:02d}:{s:02d}'
-
-
-class TrainerState(IntEnum):
-    BASE = 1
-    PARALLEL = 2
-    DISTRIBUTEDPARALLEL = 3
-
-
+@dataclass
 class BaseTrainer:
+    model: nn.Module
+    train_dl: DataLoader
+    valid_dl: DataLoader
+    num_epochs: int
+    loss_function: callable
+    optimizer: Optimizer = None
+    scheduler: _LRScheduler = None
+    output_dir: str = 'models'
+    max_lr: float = 1e-2
+    weight_decay: float = 0.01
+    save_every: bool = False
+    metric_functions: dict = field(default_factory=dict)
 
-    def __init__(self, model: nn.Module, train_dl: DataLoader, valid_dl: DataLoader,
-                 num_epochs: int, loss_function: callable,
-                 optimizer: Optimizer = None, scheduler: _LRScheduler = None,
-                 output_dir: str = 'models', max_lr: float = 1e-2, weight_decay: float = 0.0,
-                 save_every: bool = False, metric_functions: dict = None):
-        self.loss_function = loss_function
-        self.train_dl = train_dl
-        self.valid_dl = valid_dl
-        self.output_dir = output_dir
-        os.makedirs(output_dir, exist_ok=True)
-        self.num_epochs = num_epochs
+    def __post_init__(self):
+        os.makedirs(self.output_dir, exist_ok=True)
         self.begin_epoch = 0
-        self.max_lr = max_lr
-        self.save_every = save_every
         self.state = TrainerState.BASE
-        if optimizer is None:
-            optimizer = Adam(model.parameters(), lr=max_lr, weight_decay=weight_decay)
-        self.optimizer = optimizer
-        if scheduler is None:
-            scheduler = OneCycleScheduler(self.optimizer, self.max_lr,
-                                          total_steps=len(train_dl) * num_epochs)
-        self.scheduler = scheduler
-        self.model: nn.Module = model
-        if metric_functions is None:
-            metric_functions = {}
-        self.metric_functions = metric_functions
+        self.layer_groups = [nn.Sequential(*flatten_model(self.model))]
+        if self.optimizer is None:
+            self.optimizer = self.create_default_optimizer()
+        if self.scheduler is None:
+            self.scheduler = ConstantScheduler(self.optimizer)
+            # self.scheduler = OneCycleScheduler(self.optimizer, self.max_lr,
+            #                                    total_steps=len(self.train_dl) * self.num_epochs)
         if is_main_process():
-            self.tb_writer = SummaryWriter(output_dir, flush_secs=20)
+            self.tb_writer = SummaryWriter(self.output_dir, flush_secs=20)
         self.global_steps = 0
         self.best_val_loss = 100000
         self.logger = self._setup_logger()
+
+    def create_default_optimizer(self):
+        split_params = split_no_wd_params(self.layer_groups)
+        optimizer = Adam([{'params': p, 'lr': self.max_lr,
+                           'betas': (0.9, 0.99),
+                           # 'weight_decay': self.weight_decay
+                           } for p in split_params])
+        return optimizer
 
     def train(self, epoch):
         loss_meter = AverageMeter()
@@ -111,6 +79,9 @@ class BaseTrainer:
             loss = self.loss_function(output, y)
             loss = loss.mean()
             loss.backward()
+            for pg1, pg2 in zip(self.optimizer.param_groups[::2], self.optimizer.param_groups[1::2]):
+                for p in pg1['params']: p.data.mul_(1 - self.weight_decay * self.max_lr)
+                for p in pg2['params']: p.data.mul_(1 - self.weight_decay * self.max_lr)
             self.optimizer.step()
             if isinstance(self.scheduler, OneCycleScheduler):
                 self.scheduler.step()
@@ -373,9 +344,8 @@ class BaseTrainer:
                 bar_vals = {'it': it, 'phase': 'train', 'loss': loss_meter.avg, 'lr': lr}
                 bar.set_postfix(bar_vals)
                 it += 1
-        lrs = _split_list(lrs, skip_start, skip_end)
-        losses = _split_list(smooth_losses, skip_start, skip_end)
-        # losses = [x() for x in losses]
+        lrs = split_list(lrs, skip_start, skip_end)
+        losses = split_list(smooth_losses, skip_start, skip_end)
         fig, ax = plt.subplots(1, 1)
         ax.plot(lrs, losses)
         ax.set_ylabel("Loss")
@@ -422,7 +392,7 @@ class BaseTrainer:
         self.best_val_loss = d['best_val_loss']
 
     def _setup_logger(self):
-        logger = logging.getLogger()
+        logger = logging.getLogger(self.__class__.__name__)
         logger.setLevel(logging.DEBUG)
         # don't log results for the non-master process
         if get_rank() > 0:
@@ -439,6 +409,10 @@ class BaseTrainer:
         logger.addHandler(fh)
         return logger
 
+    @property
+    def tb_writer(self):
+        return self._tb_writer
 
-def _split_list(vals, skip_start: int, skip_end: int):
-    return vals[skip_start:-skip_end] if skip_end > 0 else vals[skip_start:]
+    @tb_writer.setter
+    def tb_writer(self, value):
+        self._tb_writer = value

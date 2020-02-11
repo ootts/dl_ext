@@ -2,12 +2,17 @@
 from setuptools import setup, find_packages
 import sys
 
-if sys.version_info < (3,):
-    sys.exit('Sorry, Python3 is required for dl_ext.')
+if sys.version_info < (3, 7):
+    sys.exit('Sorry, Python3.7+ is required for dl_ext.')
+
+try:
+    import torch
+except ModuleNotFoundError as e:
+    sys.exit('pytorch is required for dl_ext.')
 
 setup(
     name='dl_ext',
-    version='1.2.0',
+    version='1.2.2',
     description='Chen Linghao\'s personal utils.',
     packages=find_packages(),
     install_requires=[
@@ -18,7 +23,8 @@ setup(
         'multipledispatch',
         'requests',
         'tqdm',
-        'termcolor'
+        'termcolor',
+        'matplotlib'
     ],
 )
 # to install this, use 'python setup.py build develop'

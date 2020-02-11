@@ -9,6 +9,14 @@ def get_lr(optimizer):
         return param_group['lr']
 
 
+class ConstantScheduler(_LRScheduler):
+    def __init__(self, optimizer, last_epoch=-1):
+        super(ConstantScheduler, self).__init__(optimizer, last_epoch)
+
+    def get_lr(self):
+        return self.base_lrs
+
+
 class OneCycleScheduler(_LRScheduler):
     """Sets the learning rate of each parameter group according to
     cyclical learning rate policy (CLR). The policy cycles the learning
@@ -110,7 +118,6 @@ class OneCycleScheduler(_LRScheduler):
             elif 'betas' in optimizer.defaults:
                 # use betas[0]
                 self.mom = 'beta'
-                pass
             else:
                 raise ValueError('optimizer must support momentum with `cycle_momentum` option enabled')
             base_momentums = self._format_param('base_momentum', optimizer, base_momentum)
@@ -147,23 +154,24 @@ class OneCycleScheduler(_LRScheduler):
         If `self.cycle_momentum` is ``True``, this function has a side effect of
         updating the optimizer's momentum.
         """
-        x = self.last_epoch / self.total_steps
+        it = self.last_epoch + 1
+        x = it / self.total_steps
         lrs = []
         for base_lr, max_lr, end_lr in zip(self.base_lrs, self.max_lrs, self.end_lrs):
             if x <= self.step_ratio:
-                lr = annealing_cos(base_lr, max_lr, self.last_epoch / self.step_size_up)
+                lr = annealing_cos(base_lr, max_lr, it / self.step_size_up)
             else:
-                lr = annealing_cos(max_lr, end_lr, (self.last_epoch - self.step_size_up) / self.step_size_down)
+                lr = annealing_cos(max_lr, end_lr, (it - self.step_size_up) / self.step_size_down)
             lrs.append(lr)
 
         if self.cycle_momentum:
             momentums = []
             for base_momentum, max_momentum in zip(self.base_momentums, self.max_momentums):
                 if x <= self.step_ratio:
-                    momentum = annealing_cos(max_momentum, base_momentum, self.last_epoch / self.step_size_up)
+                    momentum = annealing_cos(max_momentum, base_momentum, it / self.step_size_up)
                 else:
                     momentum = annealing_cos(base_momentum, max_momentum,
-                                             (self.last_epoch - self.step_size_up) / self.step_size_down)
+                                             (it - self.step_size_up) / self.step_size_down)
                 momentums.append(momentum)
             for param_group, momentum in zip(self.optimizer.param_groups, momentums):
                 if self.mom == 'momentum':

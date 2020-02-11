@@ -6,6 +6,7 @@ import torchvision
 import torchvision.transforms as transforms
 from torch import nn
 from torch import optim
+from torch.nn import init
 from torch.utils.data import DataLoader
 from torchvision.models import resnet18, ResNet
 
@@ -16,34 +17,25 @@ from dl_ext.vision_ext.transforms import imagenet_normalize
 parser = argparse.ArgumentParser()
 parser.add_argument('--epochs', type=int, default=10)
 parser.add_argument('--local_rank', type=int, default=0)
-# parser.add_argument('--pretrained', default=False, action='store_true')
 parser.add_argument('--lr', type=float, default=1e-2)
-# parser.add_argument('--one_cycle', default=False, action='store_true')
 parser.add_argument('--logdir', default='log')
-parser.add_argument('--aug', default=False, action='store_true')
-parser.add_argument('--step_size', default=20, type=int)
 
 args = parser.parse_args()
 
 
 def build_dataloaders():
-    if args.aug:
-        ts = [transforms.RandomHorizontalFlip(),
-              transforms.RandomVerticalFlip()]
-    else:
-        ts = []
-    train_transform = transforms.Compose(
-        ts + [transforms.ToTensor(),
-              imagenet_normalize])
+    train_transform = transforms.Compose([transforms.ToTensor(),
+                                          imagenet_normalize])
     val_transform = transforms.Compose([transforms.ToTensor(),
                                         imagenet_normalize])
-    trainset = torchvision.datasets.CIFAR10(root='./data',
+    trainset = torchvision.datasets.CIFAR10(root=os.path.expanduser('~/Datasets/cifar10'),
                                             train=True,
                                             download=True, transform=train_transform)
-    trainloader = DataLoader(trainset, batch_size=2048,
-                             shuffle=True, num_workers=0)
+    trainloader = DataLoader(trainset, batch_size=128,
+                             shuffle=False, num_workers=0)
 
-    testset = torchvision.datasets.CIFAR10(root='./data', train=False,
+    testset = torchvision.datasets.CIFAR10(root=os.path.expanduser('~/Datasets/cifar10'),
+                                           train=False,
                                            download=True, transform=val_transform)
     testloader = DataLoader(testset, batch_size=1024,
                             shuffle=False, num_workers=0)
@@ -51,8 +43,11 @@ def build_dataloaders():
 
 
 def build_model():
+    torch.manual_seed(0)
     model: ResNet = resnet18(pretrained=True)
     model.fc = nn.Linear(model.fc.in_features, 10)
+    init.constant_(model.fc.weight,0.001)
+    init.constant_(model.fc.bias,0)
     model.cuda()
     return model
 
@@ -87,7 +82,7 @@ def main():
                           args.epochs, criterion,
                           metric_functions={'accuracy': accuracy},
                           save_every=True,
-                          max_lr=1e-3)
+                          max_lr=1e-2)
     if num_gpus > 1:
         trainer.to_distributed()
     # train
