@@ -50,3 +50,7 @@ class KITTIObject3D:
         self.occluded = occluded
         self.truncated = truncated
         self.cls = cls
+
+    def __repr__(self):
+        s = f'{self.cls.name};x1,y1,x2,y2={self.x1},{self.y1},{self.x2},{self.y2};hwl={self.h},{self.w},{self.l};ry={self.ry}'
+        return s

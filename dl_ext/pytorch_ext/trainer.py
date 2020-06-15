@@ -10,7 +10,6 @@ from termcolor import colored
 from torch.nn import DataParallel
 from torch.nn.parallel import DistributedDataParallel
 from torch.optim import Adam
-from torch.optim.adamw import AdamW
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader, DistributedSampler
