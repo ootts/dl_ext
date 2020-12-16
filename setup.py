@@ -12,7 +12,7 @@ except ModuleNotFoundError as e:
 
 setup(
     name='dl_ext',
-    version='1.2.9',
+    version='1.3.0',
     description='Chen Linghao\'s personal utils.',
     packages=find_packages(),
     install_requires=[

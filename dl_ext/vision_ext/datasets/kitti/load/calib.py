@@ -1,4 +1,5 @@
 import os
+from warnings import warn
 
 import torch
 from multipledispatch import dispatch
@@ -7,7 +8,11 @@ from .utils import inverse_rigid_trans, check_type
 
 
 class Calibration:
-    def __init__(self, calibs):
+    def __init__(self, calibs, image_size):
+        """
+        :param calibs:
+        :param image_size: width, height
+        """
         self.P0 = calibs['P0']  # 3 x 4
         self.P1 = calibs['P1']  # 3 x 4
         self.P2 = calibs['P2']  # 3 x 4
@@ -16,6 +21,7 @@ class Calibration:
         self.V2C = calibs['Tr_velo_to_cam']  # 3 x 4
         self.I2V = calibs['Tr_imu_to_velo']  # 3 x 4
         self.C2V = inverse_rigid_trans(self.V2C)
+        self.size = image_size
         # Camera intrinsics and extrinsics
         # self.cu = self.P2[0, 2]
         # self.cv = self.P2[1, 2]
@@ -254,6 +260,58 @@ class Calibration:
         else:
             pts_rect = torch.cat((x.reshape(-1, 1), y.reshape(-1, 1), z.reshape(-1, 1)), dim=1)
         return pts_rect
+
+    def todict(self):
+        calibs = {}
+        calibs['P0'] = self.P0
+        calibs['P1'] = self.P1
+        calibs['P2'] = self.P2
+        calibs['P3'] = self.P3
+        calibs['R0_rect'] = self.R0
+        calibs['Tr_velo_to_cam'] = self.V2C
+        calibs['Tr_imu_to_velo'] = self.I2V
+        d = {'calibs': calibs, 'image_size': self.size}
+        return d
+
+    def crop(self, box):
+        x1, y1, x2, y2 = box
+        d = self.todict()
+        ret = Calibration(d['calibs'], (x2 - x1, y2 - y1))
+        ret.P0[0, 2] = ret.P0[0, 2] - x1
+        ret.P0[1, 2] = ret.P0[1, 2] - y1
+        ret.P2[0, 2] = ret.P2[0, 2] - x1
+        ret.P2[1, 2] = ret.P2[1, 2] - y1
+        ret.P3[0, 2] = ret.P3[0, 2] - x1
+        ret.P3[1, 2] = ret.P3[1, 2] - y1
+        return ret
+
+    def resize(self, dst_size):
+        """
+        :param dst_size:width, height
+        :return:
+        """
+        assert len(dst_size) == 2
+        if any(a < 0 for a in dst_size):
+            warn('dst size < 0, size will not change')
+            return self
+        width, height = dst_size
+        d = self.todict()
+        ret = Calibration(d['calibs'], (width, height))
+        ret.P0[0] = ret.P0[0] / self.width * width
+        ret.P0[1] = ret.P0[1] / self.height * height
+        ret.P2[0] = ret.P2[0] / self.width * width
+        ret.P2[1] = ret.P2[1] / self.height * height
+        ret.P3[0] = ret.P3[0] / self.width * width
+        ret.P3[1] = ret.P3[1] / self.height * height
+        return ret
+
+    @property
+    def width(self):
+        return self.size[0]
+
+    @property
+    def height(self):
+        return self.size[1]
 
 
 @dispatch(str)
