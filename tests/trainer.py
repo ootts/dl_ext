@@ -88,8 +88,8 @@ def main():
     # train
     # trainer.find_lr(suggestion=True)
     trainer.fit()
-    # load model and evaluate
-    # trainer.load('2')
+    # io model and evaluate
+    # trainer.io('2')
     # results = trainer.get_preds(with_target=True)
     # if is_main_process():
     #     preds, tgts = results
