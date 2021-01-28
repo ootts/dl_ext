@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from setuptools import setup, find_packages
 import sys
+from dl_ext.version import __version__
 
 if sys.version_info < (3, 7):
     sys.exit('Sorry, Python3.7+ is required for dl_ext.')
@@ -12,7 +13,7 @@ except ModuleNotFoundError as e:
 
 setup(
     name='dl_ext',
-    version='1.3.0',
+    version=str(__version__),
     description='Chen Linghao\'s personal utils.',
     packages=find_packages(),
     install_requires=[

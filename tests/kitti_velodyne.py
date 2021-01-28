@@ -1,4 +1,4 @@
-from dl_ext.vision_ext.datasets.kitti.load.velodyne import *
+from dl_ext.vision_ext.datasets.kitti.io.velodyne import *
 
 root = '/home/linghao/Datasets/kitti'
 print(load_velodyne(root, 'training', 3).shape)

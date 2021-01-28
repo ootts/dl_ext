@@ -109,7 +109,7 @@ def split_no_wd_params(layer_groups: Collection[nn.Module]) -> List[List[nn.Para
             else:
                 l1 += list(trainable_params(c))
         # Since we scan the children separately, we might get duplicates (tied weights). We need to preserve the order
-        # for the optimizer load of state_dict
+        # for the optimizer io of state_dict
         l1, l2 = list(OrderedDict.fromkeys(l1).keys()), list(OrderedDict.fromkeys(l2).keys())
         split_params += [l1, l2]
     return split_params
