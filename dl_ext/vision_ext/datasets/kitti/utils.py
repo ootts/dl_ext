@@ -1,3 +1,5 @@
+import os
+import os.path as osp
 import numpy as np
 import torch
 
@@ -14,9 +16,4 @@ def inverse_rigid_trans(Tr):
 
 
 def check_type(arr):
-    if isinstance(arr, np.ndarray):
-        pass
-    elif isinstance(arr, torch.Tensor):
-        assert arr.dtype == torch.float32
-    else:
-        raise TypeError('arr must be a numpy array or a pytorch float tensor.')
+    assert isinstance(arr, (np.ndarray, torch.Tensor))

@@ -1,10 +1,9 @@
-import os
 from warnings import warn
 
-import torch
-from multipledispatch import dispatch
 import numpy as np
-from .utils import inverse_rigid_trans, check_type
+import torch
+
+from ..utils import inverse_rigid_trans, check_type
 
 
 class Calibration:
@@ -21,14 +20,8 @@ class Calibration:
         self.V2C = calibs['Tr_velo_to_cam']  # 3 x 4
         self.I2V = calibs['Tr_imu_to_velo']  # 3 x 4
         self.C2V = inverse_rigid_trans(self.V2C)
+        self.V2I = inverse_rigid_trans(self.I2V)
         self.size = image_size
-        # Camera intrinsics and extrinsics
-        # self.cu = self.P2[0, 2]
-        # self.cv = self.P2[1, 2]
-        # self.fu = self.P2[0, 0]
-        # self.fv = self.P2[1, 1]
-        # self.tx = self.P2[0, 3] / (-self.fu)
-        # self.ty = self.P2[1, 3] / (-self.fv)
 
     @property
     def cu(self):
@@ -55,10 +48,25 @@ class Calibration:
         return self.P2[1, 3] / (-self.fv)
 
     @property
+    def C0to2(self):
+        C = np.eye(4)
+        C[0, 3] = -self.tx
+        C[1, 3] = -self.ty
+        return C
+
+    @property
+    def C2to0(self):
+        C = np.eye(4)
+        C[0, 3] = self.tx
+        C[1, 3] = self.ty
+        return C
+
+    @property
     def stereo_baseline(self):
         return self.P2[0, 3] - self.P3[0, 3]
 
-    def cart_to_hom(self, pts):
+    @staticmethod
+    def cart_to_hom(pts):
         """
         :param pts: (N, 3 or 2)
         :return pts_hom: (N, 4 or 3)
@@ -71,7 +79,8 @@ class Calibration:
             pts_hom = torch.cat((pts, ones), dim=1)
         return pts_hom
 
-    def hom_to_cart(self, pts):
+    @staticmethod
+    def hom_to_cart(pts):
         """
         :param pts: (N, 4 or 3)
         :return pts_hom: (N, 3 or 2)
@@ -93,7 +102,6 @@ class Calibration:
             device = pts_lidar_hom.device
             pts_rect = pts_lidar_hom @ torch.tensor(self.V2C).float().t().to(device=device) @ torch.tensor(
                 self.R0).float().t().to(device=device)
-        # pts_rect = reduce(np.dot, (pts_lidar_hom, self.V2C.T, self.R0.T))
         return pts_rect
 
     def rect_to_lidar(self, pts_rect):
@@ -148,12 +156,38 @@ class Calibration:
             pts_rect_depth = pts_2d_hom[:, 2] - P2.t()[3, 2]  # depth in rect camera coord
         return pts_img, pts_rect_depth
 
+    def rect_to_cam2(self, pts):
+        if isinstance(pts, np.ndarray):
+            C0to2 = self.C0to2
+            pts = self.cart_to_hom(pts)
+            pts = pts @ C0to2.T
+            pts = self.hom_to_cart(pts)
+        else:
+            C0to2 = torch.from_numpy(self.C0to2).to(device=pts.device).float()
+            pts = self.cart_to_hom(pts)
+            pts = pts @ C0to2.t()
+            pts = self.hom_to_cart(pts)
+        return pts
+
+    def cam2_to_rect(self, pts):
+        if isinstance(pts, np.ndarray):
+            C2to0 = self.C2to0
+            pts = self.cart_to_hom(pts)
+            pts = pts @ C2to0.T
+            pts = self.hom_to_cart(pts)
+        else:
+            C2to0 = torch.from_numpy(self.C2to0).to(device=pts.device).float()
+            pts = self.cart_to_hom(pts)
+            pts = pts @ C2to0.t()
+            pts = self.hom_to_cart(pts)
+        return pts
+
     def lidar_to_img(self, pts_lidar):
         """
         :param pts_lidar: (N, 3)
         :return pts_img: (N, 2)
         """
-        # check_type(pts_lidar)
+        check_type(pts_lidar)
         pts_rect = self.lidar_to_rect(pts_lidar)
         pts_img, pts_depth = self.rect_to_img(pts_rect)
         return pts_img, pts_depth
@@ -176,7 +210,7 @@ class Calibration:
             pts_rect = torch.cat((x.reshape(-1, 1), y.reshape(-1, 1), depth_rect.reshape(-1, 1)), dim=1)
         return pts_rect
 
-    def depthmap_to_rect(self, depth_map):
+    def depth_map_to_rect(self, depth_map):
         """
         :param depth_map: (H, W), depth_map
         :return: pts_rect(H*W, 3), x_idxs(N), y_idxs(N)
@@ -204,6 +238,11 @@ class Calibration:
         check_type(disparity_map)
         depth_map = self.stereo_baseline / (disparity_map + epsilon)
         return depth_map
+
+    def depth_map_to_disparity_map(self, depth_map, epsilon=1e-6):
+        check_type(depth_map)
+        disparity_map = self.stereo_baseline / (depth_map + epsilon)
+        return disparity_map
 
     def corners3d_to_img_boxes(self, corners3d):
         """
@@ -261,6 +300,26 @@ class Calibration:
             pts_rect = torch.cat((x.reshape(-1, 1), y.reshape(-1, 1), z.reshape(-1, 1)), dim=1)
         return pts_rect
 
+    def imu_to_velo(self, pts_3d_imu):
+        pts_3d_imu = self.cart_to_hom(pts_3d_imu)  # nx4
+        if isinstance(pts_3d_imu, np.ndarray):
+            return np.dot(pts_3d_imu, np.transpose(self.I2V))
+        else:
+            return pts_3d_imu @ torch.from_numpy(self.I2V).to(pts_3d_imu.device).float().t()
+
+    def velo_to_imu(self, pts_3d_velo):
+        pts_3d_velo = self.cart_to_hom(pts_3d_velo)  # nx4
+        if isinstance(pts_3d_velo, np.ndarray):
+            return pts_3d_velo @ self.V2I.T
+        else:
+            return pts_3d_velo @ torch.from_numpy(self.V2I).to(pts_3d_velo.device).float().t()
+
+    def rect_to_imu(self, pts):
+        return self.velo_to_imu(self.rect_to_lidar(pts))
+
+    def imu_to_rect(self, pts):
+        return self.lidar_to_rect(self.imu_to_velo(pts))
+
     def todict(self):
         calibs = {}
         calibs['P0'] = self.P0
@@ -287,7 +346,7 @@ class Calibration:
 
     def resize(self, dst_size):
         """
-        :param dst_size:width, height
+        :param dst_size: width, height
         :return:
         """
         assert len(dst_size) == 2
@@ -305,6 +364,14 @@ class Calibration:
         ret.P3[1] = ret.P3[1] / self.height * height
         return ret
 
+    def filter_fov_pts(self, pts_rect):
+        pts_img, pts_rect_depth = self.rect_to_img(pts_rect)
+        val_flag_1 = np.logical_and(pts_img[:, 0] >= 0, pts_img[:, 0] < self.width)
+        val_flag_2 = np.logical_and(pts_img[:, 1] >= 0, pts_img[:, 1] < self.height)
+        val_flag_merge = np.logical_and(val_flag_1, val_flag_2)
+        pts_valid_flag = np.logical_and(val_flag_merge, pts_rect_depth >= 0)
+        return pts_valid_flag
+
     @property
     def width(self):
         return self.size[0]
@@ -312,42 +379,3 @@ class Calibration:
     @property
     def height(self):
         return self.size[1]
-
-
-@dispatch(str)
-def load_calib(absolute_path):
-    with open(absolute_path) as f:
-        lines = {line.strip().split(':')[0]: list(map(float, line.strip().split(':')[1].split())) for line in
-                 f.readlines()[:-1]}
-    calibs = {'P0': np.array(lines['P0']).reshape((3, 4)),
-              'P1': np.array(lines['P1']).reshape((3, 4)),
-              'P2': np.array(lines['P2']).reshape((3, 4)),
-              'P3': np.array(lines['P3']).reshape((3, 4)),
-              'R0_rect': np.array(lines['R0_rect']).reshape((3, 3)),
-              'Tr_velo_to_cam': np.array(lines['Tr_velo_to_cam']).reshape((3, 4)),
-              'Tr_imu_to_velo': np.array(lines['Tr_imu_to_velo']).reshape((3, 4))}
-    return Calibration(calibs)
-
-
-@dispatch(str, str)
-def load_calib(calib_dir, imgid):
-    absolute_path = os.path.join(calib_dir, imgid + '.txt')
-    return load_calib(absolute_path)
-
-
-@dispatch(str, int)
-def load_calib(calib_dir, imgid):
-    imgid = '%06d' % imgid
-    return load_calib(calib_dir, imgid)
-
-
-@dispatch(str, str, str)
-def load_calib(kitti_root, split, imgid):
-    calib_dir = os.path.join(kitti_root, 'object', split, 'calib')
-    return load_calib(calib_dir, imgid)
-
-
-@dispatch(str, str, int)
-def load_calib(kitti_root, split, imgid):
-    imgid = '%06d' % imgid
-    return load_calib(kitti_root, split, imgid)
