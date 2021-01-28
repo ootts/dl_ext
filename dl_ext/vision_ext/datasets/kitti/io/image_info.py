@@ -1,10 +1,12 @@
 import os
 import pickle
+from typing import Union
 
 from tqdm import tqdm
 import numpy as np
 
-class ImageInfoCache:
+
+class _ImageInfoCache:
     instance = None
 
     def __init__(self):
@@ -12,10 +14,10 @@ class ImageInfoCache:
 
     @staticmethod
     def get_instance(root, split):
-        if ImageInfoCache.instance is None:
-            ImageInfoCache.instance = object.__new__(ImageInfoCache)
-            ImageInfoCache.instance.post_init(root, split)
-        return ImageInfoCache.instance
+        if _ImageInfoCache.instance is None:
+            _ImageInfoCache.instance = object.__new__(_ImageInfoCache)
+            _ImageInfoCache.instance.post_init(root, split)
+        return _ImageInfoCache.instance
 
     def post_init(self, root, split):
 
@@ -30,11 +32,11 @@ class ImageInfoCache:
         if os.path.exists(self.cache_path):
             return pickle.load(open(self.cache_path, 'rb'))
         else:
-            print('Cache not found. Generating...')
+            print('Image info cache not found. Generating...')
             from .image_2 import load_image_2
             img_shapes = []
             n = len(os.listdir(os.path.join(self.root, 'object', self.split, 'image_2')))
-            for i in tqdm(range(n)):
+            for i in tqdm(range(n), leave=False):
                 img2 = np.array(load_image_2(self.root, self.split, i))
                 img_shapes.append(img2.shape)
             pickle.dump(img_shapes, open(self.cache_path, 'wb'))
@@ -42,6 +44,8 @@ class ImageInfoCache:
             return img_shapes
 
 
-def load_image_info(root, split, i):
-    img_info = ImageInfoCache.get_instance(root, split)
-    return img_info.infos[i]
+def load_image_info(kitti_root: str, split: str, imgid: Union[int, str]):
+    if not isinstance(imgid, int):
+        imgid = int(imgid)
+    img_info = _ImageInfoCache.get_instance(kitti_root, split)
+    return img_info.infos[imgid]

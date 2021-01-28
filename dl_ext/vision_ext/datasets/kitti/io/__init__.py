@@ -12,10 +12,9 @@ kitti
         --testing
             ...
 Currently, these functions support calib,image_2,image_3 and label_2
-Note that these functions support overloading by dispatch.
 Parameter explanation:
     imgid: int or str, for example: 2333 or '002333'
-    kitti_root: write to kitti. not to object.
+    kitti_root: to kitti. not to object.
 
 """
 from .calib import *

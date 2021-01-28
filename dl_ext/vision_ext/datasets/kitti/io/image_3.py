@@ -1,17 +1,8 @@
-import os.path as osp
-import os
-from multipledispatch import dispatch
+from typing import Union
+
 from PIL import Image
+from ._image import _load_image_i
 
 
-@dispatch(str, str, str)
-def load_image_3(kitti_root, split, imgid):
-    image_dir = os.path.join(kitti_root, 'object', split, 'image_3')
-    img = Image.open(osp.join(image_dir, imgid + '.png'))
-    return img
-
-
-@dispatch(str, str, int)
-def load_image_3(kitti_root, split, imgid):
-    imgid = '%06d' % imgid
-    return load_image_3(kitti_root, split, imgid)
+def load_image_3(kitti_root: str, split: str, imgid: Union[str, int]) -> Image.Image:
+    return _load_image_i(kitti_root, split, imgid, 3)
