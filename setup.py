@@ -25,7 +25,8 @@ setup(
         'requests',
         'tqdm',
         'termcolor',
-        'matplotlib'
+        'matplotlib',
+        'Pillow'
     ],
 )
 # to install this, use 'python setup.py build develop'
@@ -33,6 +34,6 @@ setup(
 # 	• Build: python setup.py bdist_wheel
 # 	• Upload: python -m twine upload dist/*
 # Build and upload
-#   python setup.py bdist_wheel && python -m twine upload dist/*
+#  rm dist/* && python setup.py bdist_wheel && python -m twine upload dist/*
 # Usage:
 # Documentation or tutorial has not been fully built, please see comments in source code for help.
