@@ -232,7 +232,7 @@ class Calibration:
     def disparity_map_to_rect(self, disparity_map, epsilon=1e-6):
         check_type(disparity_map)
         depth_map = self.stereo_baseline / (disparity_map + epsilon)
-        return self.depthmap_to_rect(depth_map)
+        return self.depth_map_to_rect(depth_map)
 
     def disparity_map_to_depth_map(self, disparity_map, epsilon=1e-6):
         check_type(disparity_map)
