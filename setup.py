@@ -26,7 +26,8 @@ setup(
         'tqdm',
         'termcolor',
         'matplotlib',
-        'Pillow'
+        'Pillow',
+        'colorama'
     ],
 )
 # to install this, use 'python setup.py build develop'
