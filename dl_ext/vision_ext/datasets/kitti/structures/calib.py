@@ -1,3 +1,4 @@
+from copy import copy
 from warnings import warn
 
 import numpy as np
@@ -12,16 +13,16 @@ class Calibration:
         :param calibs:
         :param image_size: width, height
         """
-        self.P0 = calibs['P0']  # 3 x 4
-        self.P1 = calibs['P1']  # 3 x 4
-        self.P2 = calibs['P2']  # 3 x 4
-        self.P3 = calibs['P3']  # 3 x 4
-        self.R0 = calibs['R0_rect']  # 3 x 3
-        self.V2C = calibs['Tr_velo_to_cam']  # 3 x 4
-        self.I2V = calibs['Tr_imu_to_velo']  # 3 x 4
+        self.P0 = calibs['P0'].copy()  # 3 x 4
+        self.P1 = calibs['P1'].copy()  # 3 x 4
+        self.P2 = calibs['P2'].copy()  # 3 x 4
+        self.P3 = calibs['P3'].copy()  # 3 x 4
+        self.R0 = calibs['R0_rect'].copy()  # 3 x 3
+        self.V2C = calibs['Tr_velo_to_cam'].copy()  # 3 x 4
+        self.I2V = calibs['Tr_imu_to_velo'].copy()  # 3 x 4
         self.C2V = inverse_rigid_trans(self.V2C)
         self.V2I = inverse_rigid_trans(self.I2V)
-        self.size = image_size
+        self.size = copy(image_size)
 
     @property
     def cu(self):
