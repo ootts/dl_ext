@@ -59,9 +59,9 @@ class EvalTime(object):
         self.last_time = None
         self.disable = disable
 
-    def __call__(self, info):
+    def __call__(self, info, sync_cuda=True):
         if not self.disable:
-            torch.cuda.synchronize()
+            if sync_cuda: torch.cuda.synchronize()
             t = time.perf_counter()
             if self.last_time is None:
                 self.last_time = t
